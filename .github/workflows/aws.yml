@@ -35,6 +35,7 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
 
+
     # Step 5: Deploy to EC2 instance
     - name: Deploy to EC2
       run: |
