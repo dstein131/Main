@@ -4,12 +4,10 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
 const multer = require('multer');
-const mysql = require('mysql2');
 const socketIo = require('socket.io');
+const userRoutes = require('./routes/user.routes');  // Import user routes
+const { authenticateJWT } = require('./middleware/auth.middleware');  // Import JWT auth middleware
 
 // Load environment variables
 dotenv.config();
@@ -24,21 +22,8 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Database connection
-const db = mysql.createConnection({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'resume_server'
-});
-
-db.connect(err => {
-    if (err) {
-        console.error('Error connecting to the database:', err);
-        return;
-    }
-    console.log('Connected to the MySQL database');
-});
+// Use routes
+app.use('/api/users', userRoutes); // Mounting the user routes
 
 // File upload setup
 const storage = multer.diskStorage({
