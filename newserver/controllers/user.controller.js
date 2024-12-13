@@ -1,6 +1,6 @@
-const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../pool/pool');
+const bcrypt = require('bcryptjs'); // Updated to bcryptjs
 
 // User Registration
 exports.register = (req, res) => {
