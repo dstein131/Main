@@ -35,8 +35,12 @@ jobs:
       with:
         ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
 
+    # Step 5: Test SSH connection
+    - name: Test SSH Connection
+      run: |
+        ssh -vT -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_PUBLIC_IP }}
 
-    # Step 5: Deploy to EC2 instance
+    # Step 6: Deploy to EC2 instance
     - name: Deploy to EC2
       run: |
         ssh -o StrictHostKeyChecking=no -i ${{ secrets.EC2_SSH_PRIVATE_KEY }} ec2-user@${{ secrets.EC2_PUBLIC_IP }} << 'EOF'
@@ -46,6 +50,6 @@ jobs:
           pm2 restart server.js  # Restart the app with PM2
         EOF
 
-    # Step 6: (Optional) To avoid set-output deprecation warnings, you can use $GITHUB_ENV for outputs
+    # Step 7: Set output to indicate successful deployment (fix for deprecated set-output)
     - name: Set output to indicate successful deployment
       run: echo "DEPLOYMENT_STATUS=SUCCESS" >> $GITHUB_ENV
