@@ -19,14 +19,10 @@ jobs:
         node-version: '16'
 
     - name: Install dependencies
-      run: |
-        cd newserver
-        npm install
+      run: npm install
 
     - name: Build app
-      run: |
-        cd newserver
-        npm run build
+      run: npm run build
 
     - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
