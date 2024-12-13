@@ -1,0 +1,32 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main # Or change this to the branch you're using for deployment
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      # Step 2: Set up SSH for secure access to EC2
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+
+      # Step 3: Copy the repository to the EC2 instance
+      - name: Deploy to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ec2-user@54.237.153.202 << 'EOF'
+            cd /home/ec2-user/newserver  # Adjust the path to your project
+            git pull origin main
+            npm install
+            pm2 restart server.js
+          EOF
+
