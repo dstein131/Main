@@ -42,4 +42,4 @@ jobs:
           git pull origin main
           npm install
           pm2 restart server.js  # Restart the app with PM2
-        EOF
+        EOF 
