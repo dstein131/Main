@@ -10,28 +10,28 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '16'
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20' # Updated to match Azure's Node.js version
 
-    - name: Install dependencies
-      run: |
-        cd newserver
-        npm install
+      - name: Install dependencies
+        run: |
+          cd newserver
+          npm install
 
-    - name: Build app
-      run: |
-        cd newserver
-        npm run build
+      - name: Build app
+        run: |
+          cd newserver
+          npm run build
 
-    - name: Deploy to Azure Web App
-      uses: azure/webapps-deploy@v2
-      with:
-        app-name: maindb
-        slot-name: production
-        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-        package: newserver
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: maindb
+          slot-name: production
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: ./newserver # Ensures the contents of 'newserver' are deployed to root
