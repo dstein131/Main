@@ -22,11 +22,12 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1  # Ensure this is the correct AWS region
 
-    # Step 3: Install AWS CLI
+    # Step 3: Install AWS CLI using pip (alternative method)
     - name: Install AWS CLI
       run: |
         sudo apt-get update
-        sudo apt-get install -y awscli
+        sudo apt-get install -y python3-pip
+        sudo pip3 install awscli --upgrade --user
 
     # Step 4: Set up SSH using the private key stored in GitHub secrets
     - name: Set up SSH
@@ -42,4 +43,8 @@ jobs:
           git pull origin main
           npm install
           pm2 restart server.js  # Restart the app with PM2
-        EOF 
+        EOF
+
+    # Step 6: (Optional) To avoid set-output deprecation warnings, you can use $GITHUB_ENV for outputs
+    - name: Set output to indicate successful deployment
+      run: echo "DEPLOYMENT_STATUS=SUCCESS" >> $GITHUB_ENV
