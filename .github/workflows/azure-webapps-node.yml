@@ -23,6 +23,11 @@ jobs:
           cd newserver
           npm install
 
+      - name: Rebuild native modules (Optional if using bcrypt)
+        run: |
+          cd newserver
+          npm rebuild bcrypt --build-from-source
+
       - name: Build app
         run: |
           cd newserver
@@ -34,4 +39,4 @@ jobs:
           app-name: maindb
           slot-name: production
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: . # Deploys the entire repository, including 'newserver' directory
+          package: ./newserver # Deploys contents of 'newserver' directly to root
