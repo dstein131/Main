@@ -1,14 +1,11 @@
 const express = require('express');
 const multer = require('multer');
-const sgMail = require('@sendgrid/mail');
+const nodemailer = require('nodemailer');
 const dotenv = require('dotenv');
 dotenv.config();
 
 // Initialize router
 const router = express.Router();
-
-// Set SendGrid API Key
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Configure Multer for file uploads with size limits
 const storage = multer.memoryStorage();
@@ -23,6 +20,17 @@ const upload = multer({
       cb(new Error('Unsupported file type. Allowed types are .jpeg, .png, .pdf, .docx'), false);
     }
   },
+});
+
+// Configure Nodemailer transporter for Gmail
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // Use Gmail service
+  auth: {
+    user: process.env.EMAIL_USER, // Your Gmail address
+    pass: process.env.EMAIL_PASS, // Your Gmail account password or app password
+  },
+  logger: true, // Enable Nodemailer logging
+  debug: true,  // Show debugging output
 });
 
 // Email route with file attachment handling
@@ -40,10 +48,10 @@ router.post('/send', upload.single('file'), async (req, res) => {
       .json({ success: false, message: 'All fields are required except attachment.' });
   }
 
-  // Build email data
+  // Build email options
   const mailOptions = {
-    to: process.env.RECIPIENT_EMAIL,
-    from: `"${name}" <no-reply@example.com>`, // SendGrid requires verified sender
+    from: `"${name}" <${process.env.EMAIL_USER}>`, // Sender's Gmail address
+    to: process.env.RECIPIENT_EMAIL, // Your recipient's email, stored in the .env file
     subject: `Contact Form Submission from ${name}`,
     text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
     html: `<p><strong>Name:</strong> ${name}</p>
@@ -52,10 +60,8 @@ router.post('/send', upload.single('file'), async (req, res) => {
     attachments: file
       ? [
           {
-            content: file.buffer.toString('base64'), // Convert to base64 for SendGrid
             filename: file.originalname,
-            type: file.mimetype,
-            disposition: 'attachment',
+            content: file.buffer,
           },
         ]
       : [],
@@ -63,11 +69,14 @@ router.post('/send', upload.single('file'), async (req, res) => {
 
   try {
     console.log('Attempting to send email with options:', mailOptions);
-    await sgMail.send(mailOptions);
-    console.log('Email sent successfully');
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully:', info);
     res.status(200).json({ success: true, message: 'Message sent successfully!' });
   } catch (error) {
     console.error('Error sending email:', error);
+    if (error.response) {
+      console.error('SMTP Response:', error.response);
+    }
     res.status(500).json({ success: false, message: 'Failed to send message.', error: error.message });
   }
 });
