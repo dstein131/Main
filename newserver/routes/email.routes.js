@@ -14,12 +14,14 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
 
-// Configure Nodemailer transporter
+// Configure Nodemailer transporter for Microsoft 365
 const transporter = nodemailer.createTransport({
-  service: 'Gmail', // or another email provider like Outlook, Yahoo
+  host: 'smtp.office365.com', // Microsoft 365 SMTP server
+  port: 587,
+  secure: false, // Use TLS
   auth: {
-    user: process.env.EMAIL_USER, // Your email address
-    pass: process.env.EMAIL_PASS, // Your email password or app password
+    user: process.env.EMAIL_USER, // Your Microsoft 365 email address
+    pass: process.env.EMAIL_PASS, // Your email account password or app password
   },
 });
 
@@ -30,13 +32,15 @@ router.post('/send', upload.single('file'), async (req, res) => {
 
   // Validate required fields
   if (!name || !email || !message) {
-    return res.status(400).json({ success: false, message: 'All fields are required except attachment.' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'All fields are required except attachment.' });
   }
 
   // Build email options
   const mailOptions = {
-    from: `"${name}" <${email}>`, // Sender details
-    to: 'your-email@example.com', // Replace with your actual email
+    from: `"${name}" <${process.env.EMAIL_USER}>`, // Sender's Microsoft 365 email address
+    to: 'your-recipient@example.com', // Replace with your actual recipient email
     subject: `Contact Form Submission from ${name}`,
     text: message,
     html: `<p><strong>Name:</strong> ${name}</p>
@@ -64,4 +68,3 @@ router.post('/send', upload.single('file'), async (req, res) => {
 });
 
 module.exports = router;
-
