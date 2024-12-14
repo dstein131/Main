@@ -73,6 +73,14 @@ const upload = multer({
     },
 });
 
+app.use((req, res, next) => {
+    console.log('Session:', req.session);
+    next();
+});
+
+
+
+
 // Session configuration
 const sessionStore = new MySQLStore({}, pool.promise());
 app.use(
@@ -81,7 +89,7 @@ app.use(
         secret: process.env.VITE_SESSION_SECRET || 'default_secret',
         store: sessionStore,
         resave: false,
-        saveUninitialized: false,
+        saveUninitialized: true, // Set to true to save sessions even when they are uninitialized
         cookie: {
             maxAge: 1000 * 60 * 60 * 24,
             httpOnly: true,
@@ -89,6 +97,7 @@ app.use(
         },
     })
 );
+
 
 // Use routes
 app.use('/api/users', userRoutes);
