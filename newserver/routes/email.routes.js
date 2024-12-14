@@ -7,14 +7,22 @@ dotenv.config();
 // Initialize router
 const router = express.Router();
 
-// Configure Multer for file uploads
+// Configure Multer for file uploads with size limits
 const storage = multer.memoryStorage(); // Store files in memory
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
+});
 
 // Email route with file attachment handling
 router.post('/send', upload.single('file'), async (req, res) => {
   const { name, email, message } = req.body;
   const file = req.file;
+
+  // Validate required fields
+  if (!name || !email || !message) {
+    return res.status(400).json({ success: false, message: 'All fields are required.' });
+  }
 
   // Build email payload
   const payload = {
