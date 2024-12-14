@@ -29,7 +29,8 @@ app.use(helmet());
 app.use(cors({
     origin: [
         'http://localhost:3000', // Local development
-        'https://murrayhillwebdesign.netlify.app' // Netlify deployment
+        'https://murrayhillwebdesign.netlify.app', // Netlify deployment
+        'https://murrayhillwebdevelopment.com/' // Netlify deployment
     ],
     methods: 'GET,POST,PUT,DELETE', // Allowed HTTP methods
     credentials: true // Allow cookies to be sent
