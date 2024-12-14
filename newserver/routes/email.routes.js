@@ -23,7 +23,7 @@ router.post('/send', upload.single('file'), async (req, res) => {
 
   console.log('Request Body:', req.body);
   if (file) {
-    console.log('File Received:', req.file.originalname);
+    console.log('File Received:', file.originalname);
   } else {
     console.log('No file uploaded.');
   }
@@ -41,7 +41,7 @@ router.post('/send', upload.single('file'), async (req, res) => {
         subject: `Contact Form Submission from ${name}`,
       },
     ],
-    from: { email }, // Sender's email
+    from: { email: 'your-email@example.com' }, // Verified sender email
     content: [
       {
         type: 'text/plain',
@@ -54,7 +54,6 @@ router.post('/send', upload.single('file'), async (req, res) => {
                 <p><strong>Message:</strong> ${message}</p>`,
       },
     ],
-    // Add attachment if file exists
     attachments: file
       ? [
           {
@@ -84,7 +83,11 @@ router.post('/send', upload.single('file'), async (req, res) => {
     console.log('Email sent successfully:', response.data);
     res.status(200).json({ success: true, message: 'Message sent successfully!' });
   } catch (error) {
-    console.error('Error sending email:', error.response?.data || error.message);
+    if (error.response) {
+      console.error('SendGrid API Error:', error.response.data);
+    } else {
+      console.error('Network Error:', error.message);
+    }
     res.status(500).json({ success: false, message: 'Failed to send message.' });
   }
 });
