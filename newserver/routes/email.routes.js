@@ -31,15 +31,20 @@ const transporter = nodemailer.createTransport({
     user: process.env.EMAIL_USER, // Your Microsoft 365 email address
     pass: process.env.EMAIL_PASS, // Your email account password or app password
   },
+  logger: true, // Enable Nodemailer logging
+  debug: true,  // Show debugging output
 });
 
 // Email route with file attachment handling
 router.post('/send', upload.single('file'), async (req, res) => {
+  console.log('Incoming request:', req.body, req.file);
+
   const { name, email, message } = req.body;
   const file = req.file;
 
   // Validate required fields
   if (!name || !email || !message) {
+    console.log('Validation failed: missing fields');
     return res
       .status(400)
       .json({ success: false, message: 'All fields are required except attachment.' });
@@ -65,18 +70,22 @@ router.post('/send', upload.single('file'), async (req, res) => {
   };
 
   try {
-    // Send email
+    console.log('Attempting to send email with options:', mailOptions);
     const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully:', info.response);
+    console.log('Email sent successfully:', info);
     res.status(200).json({ success: true, message: 'Message sent successfully!' });
   } catch (error) {
-    console.error('Error sending email:', error.message);
-    res.status(500).json({ success: false, message: 'Failed to send message.' });
+    console.error('Error sending email:', error);
+    if (error.response) {
+      console.error('SMTP Response:', error.response);
+    }
+    res.status(500).json({ success: false, message: 'Failed to send message.', error: error.message });
   }
 });
 
 // Error handling for file upload issues
 router.use((err, req, res, next) => {
+  console.error('Middleware error handler caught an error:', err);
   if (err instanceof multer.MulterError) {
     res.status(400).json({ success: false, message: err.message });
   } else if (err.message === 'Unsupported file type. Allowed types are .jpeg, .png, .pdf, .docx') {
