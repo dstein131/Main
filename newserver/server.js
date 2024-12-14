@@ -23,12 +23,16 @@ app.set('views', path.join(__dirname, 'views')); // Define the views directory
 // Middleware
 app.use(helmet());
 
-// Configure CORS to allow requests from localhost:3000
+// Configure CORS to allow requests from both localhost and Netlify deployment
 app.use(cors({
-    origin: 'http://localhost:3000', // Allow only this origin
+    origin: [
+        'http://localhost:3000', // Local development
+        'https://murrayhillwebdesign.netlify.app' // Netlify deployment
+    ],
     methods: 'GET,POST,PUT,DELETE', // Allowed HTTP methods
     credentials: true // Allow cookies to be sent
 }));
+
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
