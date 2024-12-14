@@ -1,11 +1,14 @@
 const express = require('express');
 const multer = require('multer');
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 const dotenv = require('dotenv');
 dotenv.config();
 
 // Initialize router
 const router = express.Router();
+
+// Set SendGrid API Key
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Configure Multer for file uploads with size limits
 const storage = multer.memoryStorage();
@@ -20,19 +23,6 @@ const upload = multer({
       cb(new Error('Unsupported file type. Allowed types are .jpeg, .png, .pdf, .docx'), false);
     }
   },
-});
-
-// Configure Nodemailer transporter for Microsoft 365
-const transporter = nodemailer.createTransport({
-  host: 'smtp.office365.com', // Microsoft 365 SMTP server
-  port: 587,
-  secure: false, // Use TLS
-  auth: {
-    user: process.env.EMAIL_USER, // Your Microsoft 365 email address
-    pass: process.env.EMAIL_PASS, // Your email account password or app password
-  },
-  logger: true, // Enable Nodemailer logging
-  debug: true,  // Show debugging output
 });
 
 // Email route with file attachment handling
@@ -50,10 +40,10 @@ router.post('/send', upload.single('file'), async (req, res) => {
       .json({ success: false, message: 'All fields are required except attachment.' });
   }
 
-  // Build email options
+  // Build email data
   const mailOptions = {
-    from: `"${name}" <${process.env.EMAIL_USER}>`, // Sender's Microsoft 365 email address
-    to: process.env.RECIPIENT_EMAIL, // Your recipient's email, stored in the .env file
+    to: process.env.RECIPIENT_EMAIL,
+    from: `"${name}" <no-reply@example.com>`, // SendGrid requires verified sender
     subject: `Contact Form Submission from ${name}`,
     text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
     html: `<p><strong>Name:</strong> ${name}</p>
@@ -62,8 +52,10 @@ router.post('/send', upload.single('file'), async (req, res) => {
     attachments: file
       ? [
           {
+            content: file.buffer.toString('base64'), // Convert to base64 for SendGrid
             filename: file.originalname,
-            content: file.buffer,
+            type: file.mimetype,
+            disposition: 'attachment',
           },
         ]
       : [],
@@ -71,14 +63,11 @@ router.post('/send', upload.single('file'), async (req, res) => {
 
   try {
     console.log('Attempting to send email with options:', mailOptions);
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully:', info);
+    await sgMail.send(mailOptions);
+    console.log('Email sent successfully');
     res.status(200).json({ success: true, message: 'Message sent successfully!' });
   } catch (error) {
     console.error('Error sending email:', error);
-    if (error.response) {
-      console.error('SMTP Response:', error.response);
-    }
     res.status(500).json({ success: false, message: 'Failed to send message.', error: error.message });
   }
 });
