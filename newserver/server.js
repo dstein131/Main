@@ -6,9 +6,11 @@ const morgan = require('morgan');
 const dotenv = require('dotenv');
 const multer = require('multer');
 const socketIo = require('socket.io');
-const userRoutes = require('./routes/user.routes');  // Import user routes
-const { authenticateJWT } = require('./middleware/auth.middleware');  // Import JWT auth middleware
 const path = require('path'); // Import path module
+
+const userRoutes = require('./routes/user.routes'); // Import user routes
+const { authenticateJWT } = require('./middleware/auth.middleware'); // Import JWT auth middleware
+const emailRoutes = require('./routes/email.routes'); // Import email routes
 
 // Load environment variables
 dotenv.config();
@@ -33,24 +35,24 @@ app.use(cors({
     credentials: true // Allow cookies to be sent
 }));
 
-
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Use routes
-app.use('/api/users', userRoutes); // Mounting the user routes
-
 // File upload setup
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/');
+        cb(null, 'uploads/'); // Directory for file uploads
     },
     filename: (req, file, cb) => {
         cb(null, Date.now() + '-' + file.originalname);
     }
 });
 const upload = multer({ storage });
+
+// Use routes
+app.use('/api/users', userRoutes); // Mounting the user routes
+app.use('/api/email', emailRoutes); // Mounting the email routes
 
 // Socket.io setup (for real-time functionalities)
 const http = require('http');
@@ -66,6 +68,13 @@ io.on('connection', (socket) => {
 // Import and use the landing page route
 const landingPageRoute = require('./routes/landingPage.routes');
 app.use('/', landingPageRoute); // Mount the landing page route at root
+
+// Ensure uploads directory exists
+const fs = require('fs');
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+}
 
 // Start the server
 const PORT = process.env.PORT || 8080;
