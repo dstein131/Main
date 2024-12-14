@@ -8,20 +8,29 @@ dotenv.config();
 const router = express.Router();
 
 // Configure Multer for file uploads with size limits
-const storage = multer.memoryStorage(); // Store files in memory
+const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
 });
 
 // Email route with file attachment handling
 router.post('/send', upload.single('file'), async (req, res) => {
+  console.log('Request received at /send');
+
   const { name, email, message } = req.body;
   const file = req.file;
 
+  console.log('Request Body:', req.body);
+  if (file) {
+    console.log('File Received:', req.file.originalname);
+  } else {
+    console.log('No file uploaded.');
+  }
+
   // Validate required fields
   if (!name || !email || !message) {
-    return res.status(400).json({ success: false, message: 'All fields are required.' });
+    return res.status(400).json({ success: false, message: 'All fields are required except attachment.' });
   }
 
   // Build email payload
@@ -45,10 +54,11 @@ router.post('/send', upload.single('file'), async (req, res) => {
                 <p><strong>Message:</strong> ${message}</p>`,
       },
     ],
+    // Add attachment if file exists
     attachments: file
       ? [
           {
-            content: file.buffer.toString('base64'), // Convert file to Base64
+            content: file.buffer.toString('base64'),
             filename: file.originalname,
             type: file.mimetype,
             disposition: 'attachment',
@@ -57,17 +67,21 @@ router.post('/send', upload.single('file'), async (req, res) => {
       : [],
   };
 
+  console.log('Payload:', JSON.stringify(payload, null, 2));
+
   try {
     const response = await axios.post(
       'https://api.sendgrid.com/v3/mail/send',
       payload,
       {
         headers: {
-          Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`, // SendGrid API key
+          Authorization: `Bearer ${process.env.SENDGRID_API_KEY}`,
           'Content-Type': 'application/json',
         },
+        timeout: 5000, // 5-second timeout
       }
     );
+    console.log('Email sent successfully:', response.data);
     res.status(200).json({ success: true, message: 'Message sent successfully!' });
   } catch (error) {
     console.error('Error sending email:', error.response?.data || error.message);
