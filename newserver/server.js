@@ -8,12 +8,17 @@ const multer = require('multer');
 const socketIo = require('socket.io');
 const userRoutes = require('./routes/user.routes');  // Import user routes
 const { authenticateJWT } = require('./middleware/auth.middleware');  // Import JWT auth middleware
+const path = require('path'); // Import path module
 
 // Load environment variables
 dotenv.config();
 
 // Initialize Express app
 const app = express();
+
+// Set EJS as the templating engine
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views')); // Define the views directory
 
 // Middleware
 app.use(helmet());
@@ -47,10 +52,9 @@ io.on('connection', (socket) => {
     });
 });
 
-// Define a route for the home page
-app.get('/', (req, res) => {
-    res.send('Hello, World!');
-});
+// Import and use the landing page route
+const landingPageRoute = require('./routes/landingPage.routes');
+app.use('/', landingPageRoute); // Mount the landing page route at root
 
 // Start the server
 const PORT = process.env.PORT || 8080;
