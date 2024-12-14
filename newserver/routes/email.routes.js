@@ -12,6 +12,14 @@ const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'application/msword'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Unsupported file type. Allowed types are .jpeg, .png, .pdf, .docx'), false);
+    }
+  },
 });
 
 // Configure Nodemailer transporter for Microsoft 365
@@ -40,9 +48,9 @@ router.post('/send', upload.single('file'), async (req, res) => {
   // Build email options
   const mailOptions = {
     from: `"${name}" <${process.env.EMAIL_USER}>`, // Sender's Microsoft 365 email address
-    to: 'your-recipient@example.com', // Replace with your actual recipient email
+    to: process.env.RECIPIENT_EMAIL, // Your recipient's email, stored in the .env file
     subject: `Contact Form Submission from ${name}`,
-    text: message,
+    text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
     html: `<p><strong>Name:</strong> ${name}</p>
            <p><strong>Email:</strong> ${email}</p>
            <p><strong>Message:</strong> ${message}</p>`,
@@ -64,6 +72,17 @@ router.post('/send', upload.single('file'), async (req, res) => {
   } catch (error) {
     console.error('Error sending email:', error.message);
     res.status(500).json({ success: false, message: 'Failed to send message.' });
+  }
+});
+
+// Error handling for file upload issues
+router.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    res.status(400).json({ success: false, message: err.message });
+  } else if (err.message === 'Unsupported file type. Allowed types are .jpeg, .png, .pdf, .docx') {
+    res.status(400).json({ success: false, message: err.message });
+  } else {
+    next(err);
   }
 });
 

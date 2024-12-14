@@ -7,6 +7,7 @@ const dotenv = require('dotenv');
 const multer = require('multer');
 const socketIo = require('socket.io');
 const path = require('path'); // Import path module
+const fs = require('fs'); // Import file system module
 
 const userRoutes = require('./routes/user.routes'); // Import user routes
 const { authenticateJWT } = require('./middleware/auth.middleware'); // Import JWT auth middleware
@@ -30,7 +31,7 @@ app.use(cors({
     origin: [
         'http://localhost:3000', // Local development
         'https://murrayhillwebdesign.netlify.app', // Netlify deployment
-        'https://murrayhillwebdevelopment.com/' // Netlify deployment
+        'https://murrayhillwebdevelopment.com' // Custom domain
     ],
     methods: 'GET,POST,PUT,DELETE', // Allowed HTTP methods
     credentials: true // Allow cookies to be sent
@@ -40,16 +41,34 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 // File upload setup
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/'); // Directory for file uploads
+        cb(null, uploadsDir); // Directory for file uploads
     },
     filename: (req, file, cb) => {
-        cb(null, Date.now() + '-' + file.originalname);
+        cb(null, `${Date.now()}-${file.originalname}`);
     }
 });
-const upload = multer({ storage });
+const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // Set file size limit to 5MB
+    fileFilter: (req, file, cb) => {
+        // Allow only specific file types
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'application/msword'];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Unsupported file type'), false);
+        }
+    }
+});
 
 // Use routes
 app.use('/api/users', userRoutes); // Mounting the user routes
@@ -70,12 +89,18 @@ io.on('connection', (socket) => {
 const landingPageRoute = require('./routes/landingPage.routes');
 app.use('/', landingPageRoute); // Mount the landing page route at root
 
-// Ensure uploads directory exists
-const fs = require('fs');
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir);
-}
+// Error handling for file upload errors
+app.use((err, req, res, next) => {
+    if (err instanceof multer.MulterError) {
+        // Multer-specific errors
+        res.status(400).json({ success: false, message: err.message });
+    } else if (err) {
+        // Other errors
+        res.status(500).json({ success: false, message: err.message });
+    } else {
+        next();
+    }
+});
 
 // Start the server
 const PORT = process.env.PORT || 8080;
