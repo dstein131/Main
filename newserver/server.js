@@ -22,7 +22,14 @@ app.set('views', path.join(__dirname, 'views')); // Define the views directory
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+
+// Configure CORS to allow requests from localhost:3000
+app.use(cors({
+    origin: 'http://localhost:3000', // Allow only this origin
+    methods: 'GET,POST,PUT,DELETE', // Allowed HTTP methods
+    credentials: true // Allow cookies to be sent
+}));
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(morgan('dev'));
