@@ -22,9 +22,9 @@ router.post('/respond', async (req, res) => {
     const openaiResponse = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-3.5-turbo', // Use a model that aligns with your limits
+        model: 'gpt-3.5-turbo', // Free-tier model
         messages: [{ role: 'user', content: message }],
-        max_tokens: 50, // Reduced token usage for better API efficiency
+        max_tokens: 50, // Keep token usage low
         temperature: 0.7, // Adjust for creativity
       },
       {
