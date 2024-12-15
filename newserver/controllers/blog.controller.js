@@ -6,10 +6,11 @@ const pool = require('../pool/pool');
 // Blog Posts
 // ---------------------
 
-// Get all blog posts with associated categories and tags
+// Get all blog posts with associated categories, tags, and comment count
 exports.getAllPosts = (req, res) => {
     pool.query(
-        `SELECT bp.*, u.username AS author 
+        `SELECT bp.*, u.username AS author, 
+            (SELECT COUNT(*) FROM blog_comments bc WHERE bc.post_id = bp.id) AS commentCount
          FROM blog_posts bp 
          JOIN users u ON bp.user_id = u.id 
          ORDER BY bp.created_at DESC`,
@@ -83,6 +84,7 @@ exports.getAllPosts = (req, res) => {
         }
     );
 };
+
 
 // Get a specific blog post by ID with associated categories and tags
 exports.getPostById = (req, res) => {
