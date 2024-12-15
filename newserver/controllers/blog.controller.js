@@ -168,10 +168,30 @@ exports.createPost = (req, res) => {
                 console.error('Error creating blog post:', err);
                 return res.status(500).json({ message: 'Error creating blog post', error: err });
             }
-            res.status(201).json({ message: 'Blog post created successfully', postId: results.insertId });
+
+            const insertedId = results.insertId;
+
+            // Fetch the newly created post
+            pool.query(
+                `SELECT bp.*, u.username AS author
+                 FROM blog_posts bp
+                 JOIN users u ON bp.user_id = u.id
+                 WHERE bp.id = ?`,
+                [insertedId],
+                (err, postResults) => {
+                    if (err) {
+                        console.error('Error fetching the created blog post:', err);
+                        return res.status(500).json({ message: 'Error fetching the created blog post', error: err });
+                    }
+
+                    const createdPost = postResults[0];
+                    res.status(201).json({ message: 'Blog post created successfully', post: createdPost });
+                }
+            );
         }
     );
 };
+
 
 
 // Update a blog post
