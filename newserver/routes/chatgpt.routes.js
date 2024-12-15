@@ -15,6 +15,8 @@ const { authenticateJWT } = require('../middleware/auth.middleware'); // Import 
  * @access  Public or Protected (depending on middleware)
  */
 router.post('/respond', async (req, res) => {
+    console.log('OpenAI API Key:', process.env.OPENAI_API_KEY);
+
   const { message } = req.body;
 
   // Validate the incoming message
