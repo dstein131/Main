@@ -5,27 +5,64 @@ const router = express.Router();
 const blogController = require('../controllers/blog.controller'); // Import blog controller
 const { authenticateJWT } = require('../middleware/auth.middleware'); // Import JWT middleware
 
-// Routes for blog posts
-router.get('/posts', blogController.getAllPosts); // Get all blog posts
-router.get('/posts/:id', blogController.getPostById); // Get a specific post by ID
-router.post('/posts', authenticateJWT, blogController.createPost); // Create a new post (requires authentication)
-router.put('/posts/:id', authenticateJWT, blogController.updatePost); // Update a post (requires authentication)
-router.delete('/posts/:id', authenticateJWT, blogController.deletePost); // Delete a post (requires authentication)
+// ---------------------
+// Routes for Blog Posts
+// ---------------------
 
-// Routes for blog comments
-router.get('/posts/:postId/comments', blogController.getCommentsByPostId); // Get all comments for a specific post
-router.post('/posts/:postId/comments', authenticateJWT, blogController.createComment); // Create a comment for a post (requires authentication)
+// Get all blog posts
+router.get('/posts', blogController.getAllPosts);
 
-// Routes for categories
-router.get('/categories', blogController.getAllCategories); // Get all categories
-router.post('/categories', authenticateJWT, blogController.createCategory); // Create a new category (requires authentication)
+// Get a specific blog post by ID
+router.get('/posts/:id', blogController.getPostById);
 
-// Routes for tags
-router.get('/tags', blogController.getAllTags); // Get all tags
-router.post('/tags', authenticateJWT, blogController.createTag); // Create a new tag (requires authentication)
+// Create a new blog post (requires authentication)
+router.post('/posts', authenticateJWT, blogController.createPost);
 
-// Routes for assigning categories and tags to posts
-router.post('/posts/:postId/categories', authenticateJWT, blogController.assignCategoriesToPost); // Assign categories to a post
-router.post('/posts/:postId/tags', authenticateJWT, blogController.assignTagsToPost); // Assign tags to a post
+// Update a blog post (requires authentication)
+router.put('/posts/:id', authenticateJWT, blogController.updatePost);
+
+// Delete a blog post (requires authentication)
+router.delete('/posts/:id', authenticateJWT, blogController.deletePost);
+
+// ---------------------
+// Routes for Blog Comments
+// ---------------------
+
+// Get all comments for a specific post
+router.get('/posts/:postId/comments', blogController.getCommentsByPostId);
+
+// Create a comment for a specific post
+// Removed authenticateJWT to allow both authenticated users and guests to add comments
+router.post('/posts/:postId/comments', blogController.createComment);
+
+// ---------------------
+// Routes for Blog Categories
+// ---------------------
+
+// Get all categories
+router.get('/categories', blogController.getAllCategories);
+
+// Create a new category (requires authentication)
+router.post('/categories', authenticateJWT, blogController.createCategory);
+
+// ---------------------
+// Routes for Blog Tags
+// ---------------------
+
+// Get all tags
+router.get('/tags', blogController.getAllTags);
+
+// Create a new tag (requires authentication)
+router.post('/tags', authenticateJWT, blogController.createTag);
+
+// ---------------------
+// Routes for Assigning Categories and Tags to Posts
+// ---------------------
+
+// Assign categories to a post (requires authentication)
+router.post('/posts/:postId/categories', authenticateJWT, blogController.assignCategoriesToPost);
+
+// Assign tags to a post (requires authentication)
+router.post('/posts/:postId/tags', authenticateJWT, blogController.assignTagsToPost);
 
 module.exports = router;

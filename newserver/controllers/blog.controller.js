@@ -6,7 +6,7 @@ const pool = require('../pool/pool');
 // Blog Posts
 // ---------------------
 
-// Get all blog posts
+// Get all blog posts with associated categories and tags
 exports.getAllPosts = (req, res) => {
     pool.query(
         `SELECT bp.*, u.username AS author 
@@ -15,14 +15,78 @@ exports.getAllPosts = (req, res) => {
          ORDER BY bp.created_at DESC`,
         (err, results) => {
             if (err) {
+                console.error('Error fetching blog posts:', err);
                 return res.status(500).json({ message: 'Error fetching blog posts', error: err });
             }
-            res.status(200).json({ posts: results });
+
+            const posts = results.map(post => ({ ...post, categories: [], tags: [] }));
+
+            if (posts.length === 0) {
+                return res.status(200).json({ posts });
+            }
+
+            const postIds = posts.map(post => post.id);
+
+            // Fetch categories for all posts
+            pool.query(
+                `SELECT pc.post_id, bc.id, bc.name, bc.slug 
+                 FROM post_categories pc 
+                 JOIN blog_categories bc ON pc.category_id = bc.id 
+                 WHERE pc.post_id IN (?)`,
+                [postIds],
+                (err, categoryResults) => {
+                    if (err) {
+                        console.error('Error fetching categories:', err);
+                        return res.status(500).json({ message: 'Error fetching categories', error: err });
+                    }
+
+                    // Assign categories to respective posts
+                    categoryResults.forEach(cat => {
+                        const post = posts.find(p => p.id === cat.post_id);
+                        if (post) {
+                            post.categories.push({
+                                id: cat.id,
+                                name: cat.name,
+                                slug: cat.slug
+                            });
+                        }
+                    });
+
+                    // Fetch tags for all posts
+                    pool.query(
+                        `SELECT pt.post_id, bt.id, bt.name, bt.slug 
+                         FROM post_tags pt 
+                         JOIN blog_tags bt ON pt.tag_id = bt.id 
+                         WHERE pt.post_id IN (?)`,
+                        [postIds],
+                        (err, tagResults) => {
+                            if (err) {
+                                console.error('Error fetching tags:', err);
+                                return res.status(500).json({ message: 'Error fetching tags', error: err });
+                            }
+
+                            // Assign tags to respective posts
+                            tagResults.forEach(tag => {
+                                const post = posts.find(p => p.id === tag.post_id);
+                                if (post) {
+                                    post.tags.push({
+                                        id: tag.id,
+                                        name: tag.name,
+                                        slug: tag.slug
+                                    });
+                                }
+                            });
+
+                            res.status(200).json({ posts });
+                        }
+                    );
+                }
+            );
         }
     );
 };
 
-// Get a specific blog post by ID
+// Get a specific blog post by ID with associated categories and tags
 exports.getPostById = (req, res) => {
     const { id } = req.params;
 
@@ -34,6 +98,7 @@ exports.getPostById = (req, res) => {
         [id],
         (err, results) => {
             if (err) {
+                console.error('Error fetching the blog post:', err);
                 return res.status(500).json({ message: 'Error fetching the blog post', error: err });
             }
 
@@ -41,7 +106,55 @@ exports.getPostById = (req, res) => {
                 return res.status(404).json({ message: 'Post not found' });
             }
 
-            res.status(200).json({ post: results[0] });
+            const post = { ...results[0], categories: [], tags: [] };
+
+            // Fetch categories for the post
+            pool.query(
+                `SELECT bc.id, bc.name, bc.slug 
+                 FROM post_categories pc 
+                 JOIN blog_categories bc ON pc.category_id = bc.id 
+                 WHERE pc.post_id = ?`,
+                [id],
+                (err, categoryResults) => {
+                    if (err) {
+                        console.error('Error fetching categories:', err);
+                        return res.status(500).json({ message: 'Error fetching categories', error: err });
+                    }
+
+                    categoryResults.forEach(cat => {
+                        post.categories.push({
+                            id: cat.id,
+                            name: cat.name,
+                            slug: cat.slug
+                        });
+                    });
+
+                    // Fetch tags for the post
+                    pool.query(
+                        `SELECT bt.id, bt.name, bt.slug 
+                         FROM post_tags pt 
+                         JOIN blog_tags bt ON pt.tag_id = bt.id 
+                         WHERE pt.post_id = ?`,
+                        [id],
+                        (err, tagResults) => {
+                            if (err) {
+                                console.error('Error fetching tags:', err);
+                                return res.status(500).json({ message: 'Error fetching tags', error: err });
+                            }
+
+                            tagResults.forEach(tag => {
+                                post.tags.push({
+                                    id: tag.id,
+                                    name: tag.name,
+                                    slug: tag.slug
+                                });
+                            });
+
+                            res.status(200).json({ post });
+                        }
+                    );
+                }
+            );
         }
     );
 };
@@ -56,6 +169,7 @@ exports.createPost = (req, res) => {
         [userId, title, slug, content, status || 'draft'],
         (err, results) => {
             if (err) {
+                console.error('Error creating blog post:', err);
                 if (err.code === 'ER_DUP_ENTRY') {
                     return res.status(400).json({ message: 'Slug must be unique. Please choose another slug.' });
                 }
@@ -77,6 +191,7 @@ exports.updatePost = (req, res) => {
         [title, slug, content, status, id, userId],
         (err, results) => {
             if (err) {
+                console.error('Error updating blog post:', err);
                 if (err.code === 'ER_DUP_ENTRY') {
                     return res.status(400).json({ message: 'Slug must be unique. Please choose another slug.' });
                 }
@@ -102,6 +217,7 @@ exports.deletePost = (req, res) => {
         [id, userId],
         (err, results) => {
             if (err) {
+                console.error('Error deleting blog post:', err);
                 return res.status(500).json({ message: 'Error deleting blog post', error: err });
             }
 
@@ -131,6 +247,7 @@ exports.getCommentsByPostId = (req, res) => {
         [postId],
         (err, results) => {
             if (err) {
+                console.error('Error fetching comments:', err);
                 return res.status(500).json({ message: 'Error fetching comments', error: err });
             }
 
@@ -142,9 +259,8 @@ exports.getCommentsByPostId = (req, res) => {
 // Create a comment for a specific blog post
 exports.createComment = (req, res) => {
     const { postId } = req.params;
-    const { content } = req.body;
+    const { content, author_name, author_email } = req.body;
     const userId = req.user ? req.user.id : null; // User ID if authenticated, null for guest
-    const { author_name, author_email } = req.body; // For guest comments
 
     // Validate guest comment fields if user is not authenticated
     if (!userId) {
@@ -159,6 +275,7 @@ exports.createComment = (req, res) => {
         [postId, userId, author_name || null, author_email || null, content],
         (err, results) => {
             if (err) {
+                console.error('Error adding comment:', err);
                 return res.status(500).json({ message: 'Error adding comment', error: err });
             }
             res.status(201).json({ message: 'Comment added successfully', commentId: results.insertId });
@@ -176,6 +293,7 @@ exports.getAllCategories = (req, res) => {
         'SELECT * FROM blog_categories ORDER BY name ASC',
         (err, results) => {
             if (err) {
+                console.error('Error fetching categories:', err);
                 return res.status(500).json({ message: 'Error fetching categories', error: err });
             }
             res.status(200).json({ categories: results });
@@ -192,6 +310,7 @@ exports.createCategory = (req, res) => {
         [name, slug],
         (err, results) => {
             if (err) {
+                console.error('Error creating category:', err);
                 if (err.code === 'ER_DUP_ENTRY') {
                     return res.status(400).json({ message: 'Category name and slug must be unique.' });
                 }
@@ -212,6 +331,7 @@ exports.getAllTags = (req, res) => {
         'SELECT * FROM blog_tags ORDER BY name ASC',
         (err, results) => {
             if (err) {
+                console.error('Error fetching tags:', err);
                 return res.status(500).json({ message: 'Error fetching tags', error: err });
             }
             res.status(200).json({ tags: results });
@@ -228,6 +348,7 @@ exports.createTag = (req, res) => {
         [name, slug],
         (err, results) => {
             if (err) {
+                console.error('Error creating tag:', err);
                 if (err.code === 'ER_DUP_ENTRY') {
                     return res.status(400).json({ message: 'Tag name and slug must be unique.' });
                 }
@@ -253,11 +374,13 @@ exports.assignCategoriesToPost = (req, res) => {
     // Start a transaction
     pool.getConnection((err, connection) => {
         if (err) {
+            console.error('Error connecting to the database:', err);
             return res.status(500).json({ message: 'Error connecting to the database', error: err });
         }
 
         connection.beginTransaction((err) => {
             if (err) {
+                console.error('Error starting transaction:', err);
                 connection.release();
                 return res.status(500).json({ message: 'Error starting transaction', error: err });
             }
@@ -268,33 +391,23 @@ exports.assignCategoriesToPost = (req, res) => {
                 [postId],
                 (err) => {
                     if (err) {
+                        console.error('Error removing existing categories:', err);
                         return connection.rollback(() => {
                             connection.release();
                             res.status(500).json({ message: 'Error removing existing categories', error: err });
                         });
                     }
 
-                    if (categoryIds.length === 0) {
-                        // If no categories to assign, commit the transaction
-                        return connection.commit((err) => {
-                            if (err) {
-                                return connection.rollback(() => {
-                                    connection.release();
-                                    res.status(500).json({ message: 'Error committing transaction', error: err });
-                                });
-                            }
-                            connection.release();
-                            res.status(200).json({ message: 'Categories unassigned successfully' });
-                        });
-                    }
+                    // Prepare values for bulk insert
+                    const values = categoryIds.map((categoryId) => [postId, categoryId]);
 
                     // Insert new category assignments
-                    const values = categoryIds.map((categoryId) => [postId, categoryId]);
                     connection.query(
                         'INSERT INTO post_categories (post_id, category_id) VALUES ?',
                         [values],
                         (err) => {
                             if (err) {
+                                console.error('Error assigning categories:', err);
                                 return connection.rollback(() => {
                                     connection.release();
                                     res.status(500).json({ message: 'Error assigning categories', error: err });
@@ -304,6 +417,7 @@ exports.assignCategoriesToPost = (req, res) => {
                             // Commit the transaction
                             connection.commit((err) => {
                                 if (err) {
+                                    console.error('Error committing transaction:', err);
                                     return connection.rollback(() => {
                                         connection.release();
                                         res.status(500).json({ message: 'Error committing transaction', error: err });
@@ -335,11 +449,13 @@ exports.assignTagsToPost = (req, res) => {
     // Start a transaction
     pool.getConnection((err, connection) => {
         if (err) {
+            console.error('Error connecting to the database:', err);
             return res.status(500).json({ message: 'Error connecting to the database', error: err });
         }
 
         connection.beginTransaction((err) => {
             if (err) {
+                console.error('Error starting transaction:', err);
                 connection.release();
                 return res.status(500).json({ message: 'Error starting transaction', error: err });
             }
@@ -350,33 +466,23 @@ exports.assignTagsToPost = (req, res) => {
                 [postId],
                 (err) => {
                     if (err) {
+                        console.error('Error removing existing tags:', err);
                         return connection.rollback(() => {
                             connection.release();
                             res.status(500).json({ message: 'Error removing existing tags', error: err });
                         });
                     }
 
-                    if (tagIds.length === 0) {
-                        // If no tags to assign, commit the transaction
-                        return connection.commit((err) => {
-                            if (err) {
-                                return connection.rollback(() => {
-                                    connection.release();
-                                    res.status(500).json({ message: 'Error committing transaction', error: err });
-                                });
-                            }
-                            connection.release();
-                            res.status(200).json({ message: 'Tags unassigned successfully' });
-                        });
-                    }
+                    // Prepare values for bulk insert
+                    const values = tagIds.map((tagId) => [postId, tagId]);
 
                     // Insert new tag assignments
-                    const values = tagIds.map((tagId) => [postId, tagId]);
                     connection.query(
                         'INSERT INTO post_tags (post_id, tag_id) VALUES ?',
                         [values],
                         (err) => {
                             if (err) {
+                                console.error('Error assigning tags:', err);
                                 return connection.rollback(() => {
                                     connection.release();
                                     res.status(500).json({ message: 'Error assigning tags', error: err });
@@ -386,6 +492,7 @@ exports.assignTagsToPost = (req, res) => {
                             // Commit the transaction
                             connection.commit((err) => {
                                 if (err) {
+                                    console.error('Error committing transaction:', err);
                                     return connection.rollback(() => {
                                         connection.release();
                                         res.status(500).json({ message: 'Error committing transaction', error: err });
