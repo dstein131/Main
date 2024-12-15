@@ -29,7 +29,7 @@ router.post('/respond', async (req, res) => {
     const openaiResponse = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-3.5-turbo', // You can choose other models like 'gpt-3.5-turbo' if preferred
+        model: 'gpt-4.0', // Use the GPT-4 model
         messages: [{ role: 'user', content: message }],
         max_tokens: 150, // Adjust as needed
         temperature: 0.7, // Adjust for creativity
