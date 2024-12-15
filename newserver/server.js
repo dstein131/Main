@@ -12,6 +12,7 @@ const fs = require('fs'); // Import file system module
 const userRoutes = require('./routes/user.routes'); // Import user routes
 const { authenticateJWT } = require('./middleware/auth.middleware'); // Import JWT auth middleware
 const emailRoutes = require('./routes/email.routes'); // Import email routes
+const blogRoutes = require('./routes/blog.routes'); // Import blog routes
 
 // Load environment variables
 dotenv.config();
@@ -73,6 +74,7 @@ const upload = multer({
 // Use routes
 app.use('/api/users', userRoutes); // Mounting the user routes
 app.use('/api/email', emailRoutes); // Mounting the email routes
+app.use('/api/blog', blogRoutes); // Mounting the blog routes
 
 // Socket.io setup (for real-time functionalities)
 const http = require('http');
