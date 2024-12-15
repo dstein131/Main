@@ -1,21 +1,14 @@
-// routes/chatgpt.routes.js
-
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
-const { authenticateJWT } = require('../middleware/auth.middleware'); // Import JWT middleware if authentication is required
-
-// Apply authentication middleware if needed
-// Uncomment the next line to protect the ChatGPT route
-// router.use(authenticateJWT);
 
 /**
  * @route   POST /api/chatgpt/respond
  * @desc    Receive user message and respond using ChatGPT
- * @access  Public or Protected (depending on middleware)
+ * @access  Public
  */
 router.post('/respond', async (req, res) => {
-    console.log('OpenAI API Key:', process.env.OPENAI_API_KEY);
+  console.log('OpenAI API Key:', process.env.OPENAI_API_KEY);
 
   const { message } = req.body;
 
@@ -29,9 +22,9 @@ router.post('/respond', async (req, res) => {
     const openaiResponse = await axios.post(
       'https://api.openai.com/v1/chat/completions',
       {
-        model: 'gpt-4.0', // Use the GPT-4 model
+        model: 'gpt-3.5-turbo', // Use a model that aligns with your limits
         messages: [{ role: 'user', content: message }],
-        max_tokens: 150, // Adjust as needed
+        max_tokens: 50, // Reduced token usage for better API efficiency
         temperature: 0.7, // Adjust for creativity
       },
       {
@@ -53,7 +46,7 @@ router.post('/respond', async (req, res) => {
     // Handle specific OpenAI API errors
     if (error.response) {
       const { status, data } = error.response;
-      return res.status(status).json({ error: data.error.message });
+      return res.status(status).json({ error: data.error?.message || 'Error from OpenAI API' });
     }
 
     // Handle other possible errors
