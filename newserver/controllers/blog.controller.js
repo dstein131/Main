@@ -158,6 +158,7 @@ exports.getPostById = (req, res) => {
 };
 
 // Create a new blog post
+// Create a new blog post
 exports.createPost = (req, res) => {
     const { title, content, status } = req.body;
     const userId = req.user.id; // Assuming user ID is available from authentication middleware
@@ -175,7 +176,8 @@ exports.createPost = (req, res) => {
 
             // Fetch the newly created post
             pool.query(
-                `SELECT bp.*, u.username AS author
+                `SELECT bp.*, u.username AS author, 
+                    (SELECT COUNT(*) FROM blog_comments bc WHERE bc.post_id = bp.id) AS commentCount
                  FROM blog_posts bp
                  JOIN users u ON bp.user_id = u.id
                  WHERE bp.id = ?`,
