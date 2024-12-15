@@ -29,7 +29,7 @@ exports.getAllPosts = (req, res) => {
 
             // Fetch categories for all posts
             pool.query(
-                `SELECT pc.post_id, bc.id, bc.name, bc.slug 
+                `SELECT pc.post_id, bc.id, bc.name
                  FROM post_categories pc 
                  JOIN blog_categories bc ON pc.category_id = bc.id 
                  WHERE pc.post_id IN (?)`,
@@ -46,15 +46,14 @@ exports.getAllPosts = (req, res) => {
                         if (post) {
                             post.categories.push({
                                 id: cat.id,
-                                name: cat.name,
-                                slug: cat.slug
+                                name: cat.name
                             });
                         }
                     });
 
                     // Fetch tags for all posts
                     pool.query(
-                        `SELECT pt.post_id, bt.id, bt.name, bt.slug 
+                        `SELECT pt.post_id, bt.id, bt.name 
                          FROM post_tags pt 
                          JOIN blog_tags bt ON pt.tag_id = bt.id 
                          WHERE pt.post_id IN (?)`,
@@ -71,8 +70,7 @@ exports.getAllPosts = (req, res) => {
                                 if (post) {
                                     post.tags.push({
                                         id: tag.id,
-                                        name: tag.name,
-                                        slug: tag.slug
+                                        name: tag.name
                                     });
                                 }
                             });
@@ -110,7 +108,7 @@ exports.getPostById = (req, res) => {
 
             // Fetch categories for the post
             pool.query(
-                `SELECT bc.id, bc.name, bc.slug 
+                `SELECT bc.id, bc.name 
                  FROM post_categories pc 
                  JOIN blog_categories bc ON pc.category_id = bc.id 
                  WHERE pc.post_id = ?`,
@@ -124,14 +122,13 @@ exports.getPostById = (req, res) => {
                     categoryResults.forEach(cat => {
                         post.categories.push({
                             id: cat.id,
-                            name: cat.name,
-                            slug: cat.slug
+                            name: cat.name
                         });
                     });
 
                     // Fetch tags for the post
                     pool.query(
-                        `SELECT bt.id, bt.name, bt.slug 
+                        `SELECT bt.id, bt.name 
                          FROM post_tags pt 
                          JOIN blog_tags bt ON pt.tag_id = bt.id 
                          WHERE pt.post_id = ?`,
@@ -145,8 +142,7 @@ exports.getPostById = (req, res) => {
                             tagResults.forEach(tag => {
                                 post.tags.push({
                                     id: tag.id,
-                                    name: tag.name,
-                                    slug: tag.slug
+                                    name: tag.name
                                 });
                             });
 
@@ -161,18 +157,15 @@ exports.getPostById = (req, res) => {
 
 // Create a new blog post
 exports.createPost = (req, res) => {
-    const { title, slug, content, status } = req.body;
+    const { title, content, status } = req.body;
     const userId = req.user.id; // Assuming user ID is available from authentication middleware
 
     pool.query(
-        'INSERT INTO blog_posts (user_id, title, slug, content, status) VALUES (?, ?, ?, ?, ?)',
-        [userId, title, slug, content, status || 'draft'],
+        'INSERT INTO blog_posts (user_id, title, content, status) VALUES (?, ?, ?, ?)',
+        [userId, title, content, status || 'draft'],
         (err, results) => {
             if (err) {
                 console.error('Error creating blog post:', err);
-                if (err.code === 'ER_DUP_ENTRY') {
-                    return res.status(400).json({ message: 'Slug must be unique. Please choose another slug.' });
-                }
                 return res.status(500).json({ message: 'Error creating blog post', error: err });
             }
             res.status(201).json({ message: 'Blog post created successfully', postId: results.insertId });
@@ -183,18 +176,15 @@ exports.createPost = (req, res) => {
 // Update a blog post
 exports.updatePost = (req, res) => {
     const { id } = req.params;
-    const { title, slug, content, status } = req.body;
+    const { title, content, status } = req.body;
     const userId = req.user.id; // Assuming user ID is available from authentication middleware
 
     pool.query(
-        'UPDATE blog_posts SET title = ?, slug = ?, content = ?, status = ? WHERE id = ? AND user_id = ?',
-        [title, slug, content, status, id, userId],
+        'UPDATE blog_posts SET title = ?, content = ?, status = ? WHERE id = ? AND user_id = ?',
+        [title, content, status, id, userId],
         (err, results) => {
             if (err) {
                 console.error('Error updating blog post:', err);
-                if (err.code === 'ER_DUP_ENTRY') {
-                    return res.status(400).json({ message: 'Slug must be unique. Please choose another slug.' });
-                }
                 return res.status(500).json({ message: 'Error updating blog post', error: err });
             }
 
@@ -301,22 +291,70 @@ exports.getAllCategories = (req, res) => {
     );
 };
 
-// Create a new category
-exports.createCategory = (req, res) => {
-    const { name, slug } = req.body;
+// Get a single category by ID
+exports.getCategoryById = (req, res) => {
+    const { id } = req.params;
 
     pool.query(
-        'INSERT INTO blog_categories (name, slug) VALUES (?, ?)',
-        [name, slug],
+        'SELECT * FROM blog_categories WHERE id = ?',
+        [id],
+        (err, results) => {
+            if (err) {
+                console.error('Error fetching category:', err);
+                return res.status(500).json({ message: 'Error fetching category', error: err });
+            }
+
+            if (results.length === 0) {
+                return res.status(404).json({ message: 'Category not found.' });
+            }
+
+            res.status(200).json({ category: results[0] });
+        }
+    );
+};
+
+// Create a new category
+exports.createCategory = (req, res) => {
+    const { name } = req.body;
+
+    pool.query(
+        'INSERT INTO blog_categories (name) VALUES (?)',
+        [name],
         (err, results) => {
             if (err) {
                 console.error('Error creating category:', err);
                 if (err.code === 'ER_DUP_ENTRY') {
-                    return res.status(400).json({ message: 'Category name and slug must be unique.' });
+                    return res.status(400).json({ message: 'Category name must be unique.' });
                 }
                 return res.status(500).json({ message: 'Error creating category', error: err });
             }
             res.status(201).json({ message: 'Category created successfully', categoryId: results.insertId });
+        }
+    );
+};
+
+// Update a category
+exports.updateCategory = (req, res) => {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    pool.query(
+        'UPDATE blog_categories SET name = ? WHERE id = ?',
+        [name, id],
+        (err, results) => {
+            if (err) {
+                console.error('Error updating category:', err);
+                if (err.code === 'ER_DUP_ENTRY') {
+                    return res.status(400).json({ message: 'Category name must be unique.' });
+                }
+                return res.status(500).json({ message: 'Error updating category', error: err });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ message: 'Category not found.' });
+            }
+
+            res.status(200).json({ message: 'Category updated successfully.' });
         }
     );
 };
@@ -339,22 +377,70 @@ exports.getAllTags = (req, res) => {
     );
 };
 
-// Create a new tag
-exports.createTag = (req, res) => {
-    const { name, slug } = req.body;
+// Get a single tag by ID
+exports.getTagById = (req, res) => {
+    const { id } = req.params;
 
     pool.query(
-        'INSERT INTO blog_tags (name, slug) VALUES (?, ?)',
-        [name, slug],
+        'SELECT * FROM blog_tags WHERE id = ?',
+        [id],
+        (err, results) => {
+            if (err) {
+                console.error('Error fetching tag:', err);
+                return res.status(500).json({ message: 'Error fetching tag', error: err });
+            }
+
+            if (results.length === 0) {
+                return res.status(404).json({ message: 'Tag not found.' });
+            }
+
+            res.status(200).json({ tag: results[0] });
+        }
+    );
+};
+
+// Create a new tag
+exports.createTag = (req, res) => {
+    const { name } = req.body;
+
+    pool.query(
+        'INSERT INTO blog_tags (name) VALUES (?)',
+        [name],
         (err, results) => {
             if (err) {
                 console.error('Error creating tag:', err);
                 if (err.code === 'ER_DUP_ENTRY') {
-                    return res.status(400).json({ message: 'Tag name and slug must be unique.' });
+                    return res.status(400).json({ message: 'Tag name must be unique.' });
                 }
                 return res.status(500).json({ message: 'Error creating tag', error: err });
             }
             res.status(201).json({ message: 'Tag created successfully', tagId: results.insertId });
+        }
+    );
+};
+
+// Update a tag
+exports.updateTag = (req, res) => {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    pool.query(
+        'UPDATE blog_tags SET name = ? WHERE id = ?',
+        [name, id],
+        (err, results) => {
+            if (err) {
+                console.error('Error updating tag:', err);
+                if (err.code === 'ER_DUP_ENTRY') {
+                    return res.status(400).json({ message: 'Tag name must be unique.' });
+                }
+                return res.status(500).json({ message: 'Error updating tag', error: err });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).json({ message: 'Tag not found.' });
+            }
+
+            res.status(200).json({ message: 'Tag updated successfully.' });
         }
     );
 };

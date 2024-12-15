@@ -31,8 +31,7 @@ router.delete('/posts/:id', authenticateJWT, blogController.deletePost);
 // Get all comments for a specific post
 router.get('/posts/:postId/comments', blogController.getCommentsByPostId);
 
-// Create a comment for a specific post
-// Removed authenticateJWT to allow both authenticated users and guests to add comments
+// Create a comment for a specific post (no authentication required for guests)
 router.post('/posts/:postId/comments', blogController.createComment);
 
 // ---------------------
@@ -45,6 +44,12 @@ router.get('/categories', blogController.getAllCategories);
 // Create a new category (requires authentication)
 router.post('/categories', authenticateJWT, blogController.createCategory);
 
+// Update a category (requires authentication)
+router.put('/categories/:id', authenticateJWT, blogController.updateCategory);
+
+// Get a single category by ID
+router.get('/categories/:id', blogController.getCategoryById);
+
 // ---------------------
 // Routes for Blog Tags
 // ---------------------
@@ -54,6 +59,12 @@ router.get('/tags', blogController.getAllTags);
 
 // Create a new tag (requires authentication)
 router.post('/tags', authenticateJWT, blogController.createTag);
+
+// Update a tag (requires authentication)
+router.put('/tags/:id', authenticateJWT, blogController.updateTag);
+
+// Get a single tag by ID
+router.get('/tags/:id', blogController.getTagById);
 
 // ---------------------
 // Routes for Assigning Categories and Tags to Posts
