@@ -173,6 +173,7 @@ exports.createPost = (req, res) => {
     );
 };
 
+
 // Update a blog post
 exports.updatePost = (req, res) => {
     const { id } = req.params;
