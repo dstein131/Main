@@ -1,3 +1,5 @@
+// server.js
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -13,6 +15,7 @@ const userRoutes = require('./routes/user.routes'); // Import user routes
 const { authenticateJWT } = require('./middleware/auth.middleware'); // Import JWT auth middleware
 const emailRoutes = require('./routes/email.routes'); // Import email routes
 const blogRoutes = require('./routes/blog.routes'); // Import blog routes
+const chatgptRoutes = require('./routes/chatgpt.routes'); // Import ChatGPT routes
 
 // Load environment variables
 dotenv.config();
@@ -75,6 +78,7 @@ const upload = multer({
 app.use('/api/users', userRoutes); // Mounting the user routes
 app.use('/api/email', emailRoutes); // Mounting the email routes
 app.use('/api/blog', blogRoutes); // Mounting the blog routes
+app.use('/api/chatgpt', chatgptRoutes); // Mounting the ChatGPT routes
 
 // Socket.io setup (for real-time functionalities)
 const http = require('http');
