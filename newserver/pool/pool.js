@@ -1,5 +1,9 @@
-const mysql = require('mysql2');
-const util = require('util');
+// pool.js
+
+const mysql = require('mysql2/promise'); // Import the promise-based interface
+const dotenv = require('dotenv');
+
+dotenv.config(); // Load environment variables from .env file
 
 // Create a pool of connections with keep-alive and additional configurations
 const pool = mysql.createPool({
@@ -24,9 +28,6 @@ const pool = mysql.createPool({
     // },
 });
 
-// Promisify for async/await usage
-pool.promise = pool.promise();
-
 // Handle connection errors gracefully
 pool.on('error', (err) => {
     console.error('Unexpected MySQL error:', err);
@@ -37,7 +38,7 @@ pool.on('error', (err) => {
 // Function to test the connection
 const testConnection = async () => {
     try {
-        const connection = await pool.promise().getConnection();
+        const connection = await pool.getConnection();
         console.log('MySQL connection established successfully.');
         connection.release();
     } catch (err) {
@@ -48,5 +49,5 @@ const testConnection = async () => {
 // Invoke the test connection (optional, can be removed in production)
 testConnection();
 
-// Export the pool to be used in other files
+// Export the promise-based pool to be used in other files
 module.exports = pool;

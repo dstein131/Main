@@ -1,7 +1,7 @@
 // controllers/blog.controller.js
 
-const pool = require('../pool/pool');
-const userpool = require('../pool/userpool'); // Importing the userpool for user-related data
+const pool = require('../pool/pool'); // Promise-based pool for blog data
+const userpool = require('../pool/userpool'); // Promise-based pool for user data
 
 // ---------------------
 // Helper Functions
@@ -35,7 +35,9 @@ const getUsernames = async (userIds) => {
 // Blog Posts
 // ---------------------
 
-// Get all blog posts with associated categories, tags, and comment count
+/**
+ * Get all blog posts with associated categories, tags, and comment count
+ */
 exports.getAllPosts = async (req, res) => {
     try {
         // Fetch all blog posts with comment count
@@ -57,7 +59,7 @@ exports.getAllPosts = async (req, res) => {
         // Fetch usernames from userpool
         const userMap = await getUsernames(userIds);
 
-        // Map posts with usernames
+        // Map posts with usernames, categories, and tags
         const enrichedPosts = await Promise.all(posts.map(async (post) => {
             // Fetch categories
             const categoriesQuery = `
@@ -92,7 +94,9 @@ exports.getAllPosts = async (req, res) => {
     }
 };
 
-// Get a specific blog post by ID with associated categories and tags
+/**
+ * Get a specific blog post by ID with associated categories and tags
+ */
 exports.getPostById = async (req, res) => {
     const { id } = req.params;
 
@@ -148,7 +152,9 @@ exports.getPostById = async (req, res) => {
     }
 };
 
-// Create a new blog post
+/**
+ * Create a new blog post
+ */
 exports.createPost = async (req, res) => {
     const { title, content, status } = req.body;
     const userId = req.user.id; // Assuming user ID is available from authentication middleware
@@ -192,7 +198,9 @@ exports.createPost = async (req, res) => {
     }
 };
 
-// Update a blog post
+/**
+ * Update a blog post
+ */
 exports.updatePost = async (req, res) => {
     const { id } = req.params;
     const { title, content, status } = req.body;
@@ -218,7 +226,9 @@ exports.updatePost = async (req, res) => {
     }
 };
 
-// Delete a blog post
+/**
+ * Delete a blog post
+ */
 exports.deletePost = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id; // Assuming user ID is available from authentication middleware
@@ -246,7 +256,9 @@ exports.deletePost = async (req, res) => {
 // Blog Comments
 // ---------------------
 
-// Get all comments for a specific blog post
+/**
+ * Get all comments for a specific blog post
+ */
 exports.getCommentsByPostId = async (req, res) => {
     const { postId } = req.params;
 
@@ -283,7 +295,9 @@ exports.getCommentsByPostId = async (req, res) => {
     }
 };
 
-// Create a comment for a specific blog post
+/**
+ * Create a comment for a specific blog post
+ */
 exports.createComment = async (req, res) => {
     const { postId } = req.params;
     const { content, author_name, author_email } = req.body;
@@ -321,7 +335,9 @@ exports.createComment = async (req, res) => {
 // Blog Categories
 // ---------------------
 
-// Get all categories
+/**
+ * Get all categories
+ */
 exports.getAllCategories = async (req, res) => {
     try {
         const [categories] = await pool.query('SELECT * FROM blog_categories ORDER BY name ASC');
@@ -332,7 +348,9 @@ exports.getAllCategories = async (req, res) => {
     }
 };
 
-// Get a single category by ID
+/**
+ * Get a single category by ID
+ */
 exports.getCategoryById = async (req, res) => {
     const { id } = req.params;
 
@@ -350,7 +368,9 @@ exports.getCategoryById = async (req, res) => {
     }
 };
 
-// Create a new category
+/**
+ * Create a new category
+ */
 exports.createCategory = async (req, res) => {
     const { name } = req.body;
 
@@ -366,7 +386,9 @@ exports.createCategory = async (req, res) => {
     }
 };
 
-// Update a category
+/**
+ * Update a category
+ */
 exports.updateCategory = async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
@@ -392,7 +414,9 @@ exports.updateCategory = async (req, res) => {
 // Blog Tags
 // ---------------------
 
-// Get all tags
+/**
+ * Get all tags
+ */
 exports.getAllTags = async (req, res) => {
     try {
         const [tags] = await pool.query('SELECT * FROM blog_tags ORDER BY name ASC');
@@ -403,7 +427,9 @@ exports.getAllTags = async (req, res) => {
     }
 };
 
-// Get a single tag by ID
+/**
+ * Get a single tag by ID
+ */
 exports.getTagById = async (req, res) => {
     const { id } = req.params;
 
@@ -421,7 +447,9 @@ exports.getTagById = async (req, res) => {
     }
 };
 
-// Create a new tag
+/**
+ * Create a new tag
+ */
 exports.createTag = async (req, res) => {
     const { name } = req.body;
 
@@ -437,7 +465,9 @@ exports.createTag = async (req, res) => {
     }
 };
 
-// Update a tag
+/**
+ * Update a tag
+ */
 exports.updateTag = async (req, res) => {
     const { id } = req.params;
     const { name } = req.body;
@@ -463,6 +493,9 @@ exports.updateTag = async (req, res) => {
 // Assign Categories to a Post
 // ---------------------
 
+/**
+ * Assign Categories to a Post
+ */
 exports.assignCategoriesToPost = async (req, res) => {
     const { postId } = req.params;
     const { categoryIds } = req.body; // Expecting an array of category IDs
@@ -502,6 +535,9 @@ exports.assignCategoriesToPost = async (req, res) => {
 // Assign Tags to a Post
 // ---------------------
 
+/**
+ * Assign Tags to a Post
+ */
 exports.assignTagsToPost = async (req, res) => {
     const { postId } = req.params;
     const { tagIds } = req.body; // Expecting an array of tag IDs

@@ -1,8 +1,12 @@
+// controllers/user.controller.js
+
 const jwt = require('jsonwebtoken');
-const userpool = require('../pool/userpool'); // Ensure userpool is already promisified
+const userpool = require('../pool/userpool'); // Importing the promise-based userpool
 const bcrypt = require('bcryptjs');
 
-// User Registration
+/**
+ * User Registration
+ */
 exports.register = async (req, res) => {
     const { username, email, password } = req.body;
 
@@ -61,7 +65,9 @@ exports.register = async (req, res) => {
     }
 };
 
-// User Login
+/**
+ * User Login
+ */
 exports.login = async (req, res) => {
     const { email, password } = req.body;
 
@@ -88,7 +94,8 @@ exports.login = async (req, res) => {
             SELECT ur.user_id
             FROM user_roles ur
             JOIN applications a ON ur.app_id = a.app_id
-            WHERE ur.user_id = ? AND a.app_name = ?`;
+            WHERE ur.user_id = ? AND a.app_name = ?
+        `;
         const [appResults] = await userpool.query(appQuery, [user.user_id, 'mhwd']);
 
         if (appResults.length === 0) {
@@ -109,7 +116,9 @@ exports.login = async (req, res) => {
     }
 };
 
-// Get User Data (Authenticated)
+/**
+ * Get User Data (Authenticated)
+ */
 exports.getUserData = async (req, res) => {
     const userId = req.user.id; // Assumes user ID is injected via middleware
 
@@ -125,11 +134,13 @@ exports.getUserData = async (req, res) => {
         res.status(200).json({ user: results[0] });
     } catch (err) {
         console.error('Error fetching user data:', err);
-        res.status(500).json({ message: 'Error fetching user data', error: err });
+        res.status(500).json({ message: 'Error fetching user data', error: err.message });
     }
 };
 
-// Assign Role to User
+/**
+ * Assign Role to User
+ */
 exports.assignRole = async (req, res) => {
     const { userId, appId, roleId } = req.body;
 
@@ -141,11 +152,13 @@ exports.assignRole = async (req, res) => {
         res.status(200).json({ message: 'Role assigned successfully' });
     } catch (err) {
         console.error('Error assigning role:', err);
-        res.status(500).json({ message: 'Error assigning role', error: err });
+        res.status(500).json({ message: 'Error assigning role', error: err.message });
     }
 };
 
-// Get User Roles
+/**
+ * Get User Roles
+ */
 exports.getUserRoles = async (req, res) => {
     const userId = req.user.id; // Assumes user ID is injected via middleware
 
@@ -156,17 +169,20 @@ exports.getUserRoles = async (req, res) => {
             FROM user_roles ur
             JOIN roles r ON ur.role_id = r.role_id
             JOIN applications a ON ur.app_id = a.app_id
-            WHERE ur.user_id = ?`;
+            WHERE ur.user_id = ?
+        `;
         const [results] = await userpool.query(query, [userId]);
 
         res.status(200).json({ roles: results });
     } catch (err) {
         console.error('Error fetching user roles:', err);
-        res.status(500).json({ message: 'Error fetching user roles', error: err });
+        res.status(500).json({ message: 'Error fetching user roles', error: err.message });
     }
 };
 
-// User Logout
+/**
+ * User Logout
+ */
 exports.logout = (req, res) => {
     if (req.session) {
         req.session.destroy((err) => {
