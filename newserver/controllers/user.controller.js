@@ -62,10 +62,6 @@ exports.register = async (req, res) => {
 };
 
 // User Login
-const jwt = require('jsonwebtoken');
-const userpool = require('../pool/userpool');
-const bcrypt = require('bcryptjs');
-
 exports.login = async (req, res) => {
     const { email, password } = req.body;
 
@@ -112,7 +108,6 @@ exports.login = async (req, res) => {
         res.status(500).json({ message: 'Error logging in', error: err.message });
     }
 };
-
 
 // Get User Data (Authenticated)
 exports.getUserData = async (req, res) => {
