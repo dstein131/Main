@@ -15,4 +15,8 @@ router.get('/me', authenticateJWT, userController.getUserData);
 // User Logout Route
 router.post('/logout', userController.logout);
 
+// Google Login Route
+router.post('/auth/google', userController.googleLogin);
+
+
 module.exports = router;

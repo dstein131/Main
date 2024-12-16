@@ -3,6 +3,9 @@
 const jwt = require('jsonwebtoken');
 const userpool = require('../pool/userpool'); // Importing the promise-based userpool
 const bcrypt = require('bcryptjs');
+const { OAuth2Client } = require('google-auth-library');
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 /**
  * User Registration
@@ -194,5 +197,63 @@ exports.logout = (req, res) => {
         });
     } else {
         res.status(200).json({ message: 'Logged out successfully. Please delete the token on the client side.' });
+    }
+};
+
+const { OAuth2Client } = require('google-auth-library');
+const jwt = require('jsonwebtoken');
+const userpool = require('../pool/userpool');
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+/**
+ * Google Login
+ */
+exports.googleLogin = async (req, res) => {
+    const { token } = req.body;
+
+    try {
+        const ticket = await googleClient.verifyIdToken({
+            idToken: token,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        const email = payload.email;
+        const username = payload.name;
+
+        const query = 'SELECT * FROM users WHERE email = ?';
+        const [results] = await userpool.query(query, [email]);
+
+        let user;
+        if (results.length > 0) {
+            user = results[0];
+        } else {
+            const insertQuery = 'INSERT INTO users (username, email) VALUES (?, ?)';
+            const [insertResult] = await userpool.query(insertQuery, [username, email]);
+            const userId = insertResult.insertId;
+
+            const appQuery = 'SELECT app_id FROM applications WHERE app_name = ?';
+            const [appResult] = await userpool.query(appQuery, ['mhwd']);
+            const roleQuery = 'SELECT role_id FROM roles WHERE role_name = ?';
+            const [roleResult] = await userpool.query(roleQuery, ['mhwd_user']);
+
+            const userRoleQuery = 'INSERT INTO user_roles (user_id, app_id, role_id) VALUES (?, ?, ?)';
+            await userpool.query(userRoleQuery, [userId, appResult[0].app_id, roleResult[0].role_id]);
+
+            const [newUserResult] = await userpool.query(query, [email]);
+            user = newUserResult[0];
+        }
+
+        const jwtToken = jwt.sign(
+            { id: user.user_id, username: user.username },
+            process.env.JWT_SECRET_KEY,
+            { expiresIn: '1h' }
+        );
+
+        res.status(200).json({ message: 'Login successful', token: jwtToken });
+    } catch (err) {
+        console.error('[Google Login Error]', err);
+        res.status(401).json({ message: 'Authentication failed', error: err.message });
     }
 };
