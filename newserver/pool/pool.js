@@ -1,11 +1,13 @@
-// pool.js
+// pools.js
 
 const mysql = require('mysql2/promise'); // Import the promise-based interface
 const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 
 dotenv.config(); // Load environment variables from .env file
 
-// Create a pool of connections with keep-alive and additional configurations
+// Create a pool of connections with SSL and additional configurations
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
@@ -18,14 +20,13 @@ const pool = mysql.createPool({
     connectTimeout: 10000, // 10 seconds
     acquireTimeout: 10000, // 10 seconds
     timeout: 30000, // 30 seconds
-    // Enable keep-alive
     enableKeepAlive: true,
     keepAliveInitialDelay: 30000, // 30 seconds
-    // Optional SSL configuration (if needed)
-    // ssl: {
-    //     rejectUnauthorized: false,
-    //     ca: fs.readFileSync(path.resolve(__dirname, 'cert.pem')),
-    // },
+    // SSL Configuration
+    ssl: {
+        rejectUnauthorized: true, // Enforce certificate validation
+        ca: fs.readFileSync(path.resolve(__dirname, 'DigiCertGlobalRootCA.crt.pem')), // Path to the DigiCert CA file
+    },
 });
 
 // Handle connection errors gracefully

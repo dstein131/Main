@@ -1,11 +1,14 @@
-// userpool.js
-
 const mysql = require('mysql2/promise'); // Import the promise-based interface
 const dotenv = require('dotenv');
+const fs = require('fs');
+const path = require('path');
 
 dotenv.config(); // Load environment variables from .env file
 
-// Create a pool of connections for the user database
+// Read the DigiCertGlobalRootCA.crt.pem file
+const sslCert = fs.readFileSync(path.join(__dirname, 'DigiCertGlobalRootCA.crt.pem'));
+
+// Create a pool of connections for the user database with SSL
 const userpool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
@@ -15,7 +18,9 @@ const userpool = mysql.createPool({
     connectionLimit: 10, // Limit the number of concurrent connections
     queueLimit: 0,
     connectTimeout: 10000, // 10 seconds for initial connection timeout
-    // Additional configurations can be added here as needed
+    ssl: {
+        ca: sslCert, // Include the SSL certificate
+    },
 });
 
 // Handle connection errors gracefully
