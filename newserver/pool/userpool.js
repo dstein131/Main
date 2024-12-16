@@ -10,9 +10,9 @@ const userpool = mysql.createPool({
     connectionLimit: 10, // Limit the number of concurrent connections
     queueLimit: 0,
     connectTimeout: 10000, // 10 seconds for initial connection timeout
-    acquireTimeout: 10000, // 10 seconds for pool to acquire connection
-    timeout: 30000, // 30 seconds total timeout
 });
 
 // Promisify the pool for async/await usage
-module.exports = userpool.promise();
+const userpoolPromise = userpool.promise();
+
+module.exports = userpoolPromise;
