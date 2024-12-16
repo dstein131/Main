@@ -16,4 +16,3 @@ const userpool = mysql.createPool({
 
 // Promisify the pool for async/await usage
 module.exports = userpool.promise();
-s
