@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const pool = require('../userpool'); // Use the new userpool.js
+const pool = require('../pool/userpool');
 const bcrypt = require('bcryptjs');
 
 // User Registration
