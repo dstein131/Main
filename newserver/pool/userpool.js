@@ -6,7 +6,7 @@ const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost', // Database host
     user: process.env.DB_USER || 'root',     // Database user
     password: process.env.DB_PASSWORD || '', // Database password
-    database: process.env.DB_NAME || 'users', // Connect to the "users" database
+    database: process.env.DB_USERS|| 'user_management', // Connect to the "users" database
     waitForConnections: true,
     connectionLimit: 10, // Limit the number of concurrent connections
     queueLimit: 0,
