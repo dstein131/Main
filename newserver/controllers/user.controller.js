@@ -200,12 +200,6 @@ exports.logout = (req, res) => {
     }
 };
 
-const { OAuth2Client } = require('google-auth-library');
-const jwt = require('jsonwebtoken');
-const userpool = require('../pool/userpool');
-
-const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-
 /**
  * Google Login
  */
@@ -259,10 +253,14 @@ exports.googleLogin = async (req, res) => {
 };
 
 exports.googleCallback = async (req, res) => {
-    const { code } = req.query; // Authorization code from Google
+    const { code } = req.query; // Extract the authorization code from the query params
+
     try {
-        const { tokens } = await client.getToken(code); // Exchange code for tokens
-        const ticket = await client.verifyIdToken({
+        // Exchange the authorization code for tokens
+        const { tokens } = await googleClient.getToken(code);
+
+        // Verify the ID token
+        const ticket = await googleClient.verifyIdToken({
             idToken: tokens.id_token,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
@@ -271,10 +269,42 @@ exports.googleCallback = async (req, res) => {
         const email = payload.email;
         const username = payload.name;
 
-        // Handle user login/registration (similar to your current logic)
-        // ...
+        // Check if the user exists in the database
+        const query = 'SELECT * FROM users WHERE email = ?';
+        const [results] = await userpool.query(query, [email]);
 
-        res.status(200).json({ message: 'Login successful', token: tokens.access_token });
+        let user;
+        if (results.length > 0) {
+            user = results[0];
+        } else {
+            // Register the new user
+            const insertQuery = 'INSERT INTO users (username, email) VALUES (?, ?)';
+            const [insertResult] = await userpool.query(insertQuery, [username, email]);
+            const userId = insertResult.insertId;
+
+            // Associate the user with the default role and app
+            const appQuery = 'SELECT app_id FROM applications WHERE app_name = ?';
+            const [appResult] = await userpool.query(appQuery, ['mhwd']);
+            const roleQuery = 'SELECT role_id FROM roles WHERE role_name = ?';
+            const [roleResult] = await userpool.query(roleQuery, ['mhwd_user']);
+
+            const userRoleQuery = 'INSERT INTO user_roles (user_id, app_id, role_id) VALUES (?, ?, ?)';
+            await userpool.query(userRoleQuery, [userId, appResult[0].app_id, roleResult[0].role_id]);
+
+            // Fetch the newly created user
+            const [newUserResult] = await userpool.query(query, [email]);
+            user = newUserResult[0];
+        }
+
+        // Generate a JWT token
+        const jwtToken = jwt.sign(
+            { id: user.user_id, username: user.username },
+            process.env.JWT_SECRET_KEY,
+            { expiresIn: '1h' }
+        );
+
+        // Redirect to the frontend with the token
+        res.redirect(`${process.env.FRONTEND_URL}/auth/success?token=${jwtToken}`);
     } catch (err) {
         console.error('[Google Callback Error]', err);
         res.status(500).json({ message: 'Authentication failed', error: err.message });
