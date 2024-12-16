@@ -1,12 +1,15 @@
 const jwt = require('jsonwebtoken');
-const pool = require('../pool/userpool');
+const pool = require('../userpool/userpool');
 const bcrypt = require('bcryptjs');
 
+// ---------------------
 // User Registration
+// ---------------------
 exports.register = async (req, res) => {
     const { username, email, password } = req.body;
 
     try {
+        // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Insert user into the database
@@ -16,11 +19,13 @@ exports.register = async (req, res) => {
         res.status(201).json({ message: 'User created successfully' });
     } catch (err) {
         console.error('Error during registration:', err);
-        res.status(500).json({ message: 'Error creating user', error: err });
+        res.status(500).json({ message: 'Error creating user', error: err.message || err });
     }
 };
 
+// ---------------------
 // User Login
+// ---------------------
 exports.login = async (req, res) => {
     const { email, password } = req.body;
 
@@ -52,13 +57,15 @@ exports.login = async (req, res) => {
         res.status(200).json({ message: 'Login successful', token });
     } catch (err) {
         console.error('Error during login:', err);
-        res.status(500).json({ message: 'Error logging in', error: err });
+        res.status(500).json({ message: 'Error logging in', error: err.message || err });
     }
 };
 
+// ---------------------
 // Get User Data (Authenticated)
+// ---------------------
 exports.getUserData = async (req, res) => {
-    const userId = req.user.id; // Assumes user ID is injected via middleware
+    const userId = req.user.id;
 
     try {
         // Retrieve user data
@@ -72,11 +79,13 @@ exports.getUserData = async (req, res) => {
         res.status(200).json({ user: results[0] });
     } catch (err) {
         console.error('Error fetching user data:', err);
-        res.status(500).json({ message: 'Error fetching user data', error: err });
+        res.status(500).json({ message: 'Error fetching user data', error: err.message || err });
     }
 };
 
+// ---------------------
 // Assign Role to User
+// ---------------------
 exports.assignRole = async (req, res) => {
     const { userId, appId, roleId } = req.body;
 
@@ -88,13 +97,15 @@ exports.assignRole = async (req, res) => {
         res.status(200).json({ message: 'Role assigned successfully' });
     } catch (err) {
         console.error('Error assigning role:', err);
-        res.status(500).json({ message: 'Error assigning role', error: err });
+        res.status(500).json({ message: 'Error assigning role', error: err.message || err });
     }
 };
 
+// ---------------------
 // Get User Roles
+// ---------------------
 exports.getUserRoles = async (req, res) => {
-    const userId = req.user.id; // Assumes user ID is injected via middleware
+    const userId = req.user.id;
 
     try {
         // Retrieve roles for the user
@@ -109,22 +120,43 @@ exports.getUserRoles = async (req, res) => {
         res.status(200).json({ roles: results });
     } catch (err) {
         console.error('Error fetching user roles:', err);
-        res.status(500).json({ message: 'Error fetching user roles', error: err });
+        res.status(500).json({ message: 'Error fetching user roles', error: err.message || err });
     }
 };
 
-
+// ---------------------
 // User Logout
+// ---------------------
 exports.logout = (req, res) => {
     if (req.session) {
         req.session.destroy((err) => {
             if (err) {
                 return res.status(500).json({ message: 'Failed to log out' });
             }
-            res.clearCookie('user_sid'); // Clear session cookie
+            res.clearCookie('user_sid');
             res.status(200).json({ message: 'Logged out successfully' });
         });
     } else {
         res.status(200).json({ message: 'Logged out successfully. Please delete the token on the client side.' });
     }
+};
+
+// ---------------------
+// Middleware for Authentication
+// ---------------------
+exports.authenticate = (req, res, next) => {
+    const token = req.headers.authorization?.split(' ')[1];
+
+    if (!token) {
+        return res.status(401).json({ message: 'Unauthorized: No token provided' });
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
+        if (err) {
+            return res.status(401).json({ message: 'Unauthorized: Invalid token', error: err.message || err });
+        }
+
+        req.user = decoded;
+        next();
+    });
 };
