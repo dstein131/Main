@@ -257,3 +257,26 @@ exports.googleLogin = async (req, res) => {
         res.status(401).json({ message: 'Authentication failed', error: err.message });
     }
 };
+
+exports.googleCallback = async (req, res) => {
+    const { code } = req.query; // Authorization code from Google
+    try {
+        const { tokens } = await client.getToken(code); // Exchange code for tokens
+        const ticket = await client.verifyIdToken({
+            idToken: tokens.id_token,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        const email = payload.email;
+        const username = payload.name;
+
+        // Handle user login/registration (similar to your current logic)
+        // ...
+
+        res.status(200).json({ message: 'Login successful', token: tokens.access_token });
+    } catch (err) {
+        console.error('[Google Callback Error]', err);
+        res.status(500).json({ message: 'Authentication failed', error: err.message });
+    }
+};

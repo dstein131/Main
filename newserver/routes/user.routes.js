@@ -18,5 +18,9 @@ router.post('/logout', userController.logout);
 // Google Login Route
 router.post('/auth/google', userController.googleLogin);
 
+// Google Callback Route
+router.get('/auth/google/callback', userController.googleCallback);
+
+
 
 module.exports = router;
