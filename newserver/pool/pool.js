@@ -1,5 +1,3 @@
-// pools.js
-
 const mysql = require('mysql2/promise'); // Import the promise-based interface
 const dotenv = require('dotenv');
 const fs = require('fs');
@@ -31,21 +29,35 @@ const pool = mysql.createPool({
 
 // Handle connection errors gracefully
 pool.on('error', (err) => {
-    console.error('Unexpected MySQL error:', err);
+    console.error('[MySQL Pool Error] An unexpected error occurred:', err.message);
+    console.error('Error Code:', err.code);
+    console.error('Stack Trace:', err.stack);
     // Depending on the application, you might want to terminate the process
     // process.exit(1);
 });
 
 // Function to test the connection
 const testConnection = async () => {
+    console.log('[MySQL Connection Test] Starting connection test...');
     try {
         const connection = await pool.getConnection();
-        console.log('MySQL connection established successfully.');
+        console.log('[MySQL Connection Test] Connection established successfully.');
+        console.log(`[MySQL Connection Test] Connected to database: ${process.env.DB_NAME || 'resume_server'} on host: ${process.env.DB_HOST || 'localhost'}`);
         connection.release();
     } catch (err) {
-        console.error('Error connecting to MySQL:', err);
+        console.error('[MySQL Connection Test Error] Error connecting to MySQL:', err.message);
+        console.error('Error Code:', err.code);
+        console.error('Stack Trace:', err.stack);
     }
 };
+
+// Log pool configuration for debugging
+console.log('[MySQL Pool Configuration] Pool initialized with the following settings:');
+console.log(`Host: ${process.env.DB_HOST || 'localhost'}`);
+console.log(`User: ${process.env.DB_USER || 'root'}`);
+console.log(`Database: ${process.env.DB_NAME || 'resume_server'}`);
+console.log(`Connection Limit: ${10}`);
+console.log(`SSL: ${process.env.DB_SSL_ENABLED === 'true' ? 'Enabled' : 'Disabled'}`);
 
 // Invoke the test connection (optional, can be removed in production)
 testConnection();
