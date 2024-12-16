@@ -57,7 +57,7 @@ console.log(`Host: ${process.env.DB_HOST || 'localhost'}`);
 console.log(`User: ${process.env.DB_USER || 'root'}`);
 console.log(`Database: ${process.env.DB_NAME || 'resume_server'}`);
 console.log(`Connection Limit: ${10}`);
-console.log(`SSL: ${process.env.DB_SSL_ENABLED === 'true' ? 'Enabled' : 'Disabled'}`);
+console.log('SSL: Enabled');
 
 // Invoke the test connection (optional, can be removed in production)
 testConnection();
