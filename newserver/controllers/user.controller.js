@@ -113,6 +113,7 @@ exports.getUserRoles = async (req, res) => {
     }
 };
 
+
 // User Logout
 exports.logout = (req, res) => {
     if (req.session) {
