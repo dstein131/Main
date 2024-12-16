@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const userpool = require('../pool/userpool');
+const userpool = require('../pool/userpool'); // Ensure userpool is already promisified
 const bcrypt = require('bcryptjs');
 
 // User Registration
@@ -10,7 +10,7 @@ exports.register = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Start a transaction to ensure both user creation and association are atomic
-        const connection = await userpool.promise().getConnection();
+        const connection = await userpool.getConnection();
         await connection.beginTransaction();
 
         try {
@@ -68,7 +68,7 @@ exports.login = async (req, res) => {
     try {
         // Retrieve user by email
         const query = 'SELECT * FROM users WHERE email = ?';
-        const [results] = await userpool.promise().query(query, [email]);
+        const [results] = await userpool.query(query, [email]);
 
         if (results.length === 0) {
             return res.status(404).json({ message: 'User not found' });
@@ -89,7 +89,7 @@ exports.login = async (req, res) => {
             FROM user_roles ur
             JOIN applications a ON ur.app_id = a.app_id
             WHERE ur.user_id = ? AND a.app_name = ?`;
-        const [appResults] = await userpool.promise().query(appQuery, [user.user_id, 'mhwd']);
+        const [appResults] = await userpool.query(appQuery, [user.user_id, 'mhwd']);
 
         if (appResults.length === 0) {
             return res.status(403).json({ message: 'Access to the mhwd application is denied.' });
@@ -116,7 +116,7 @@ exports.getUserData = async (req, res) => {
     try {
         // Retrieve user data
         const query = 'SELECT user_id, username, email FROM users WHERE user_id = ?';
-        const [results] = await userpool.promise().query(query, [userId]);
+        const [results] = await userpool.query(query, [userId]);
 
         if (results.length === 0) {
             return res.status(404).json({ message: 'User not found' });
@@ -136,7 +136,7 @@ exports.assignRole = async (req, res) => {
     try {
         // Assign role to user for a specific application
         const query = 'INSERT INTO user_roles (user_id, app_id, role_id) VALUES (?, ?, ?)';
-        await userpool.promise().query(query, [userId, appId, roleId]);
+        await userpool.query(query, [userId, appId, roleId]);
 
         res.status(200).json({ message: 'Role assigned successfully' });
     } catch (err) {
@@ -157,7 +157,7 @@ exports.getUserRoles = async (req, res) => {
             JOIN roles r ON ur.role_id = r.role_id
             JOIN applications a ON ur.app_id = a.app_id
             WHERE ur.user_id = ?`;
-        const [results] = await userpool.promise().query(query, [userId]);
+        const [results] = await userpool.query(query, [userId]);
 
         res.status(200).json({ roles: results });
     } catch (err) {
