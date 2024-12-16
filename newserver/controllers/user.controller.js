@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const pool = require('../pool/userpool');
+const userpool = require('../pool/userpool');
 const bcrypt = require('bcryptjs');
 
 // User Registration
@@ -9,25 +9,70 @@ exports.register = async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        // Insert user into the database
-        const query = 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)';
-        await pool.promise().query(query, [username, email, hashedPassword]);
+        // Start a transaction to ensure both user creation and association are atomic
+        const connection = await userpool.promise().getConnection();
+        await connection.beginTransaction();
 
-        res.status(201).json({ message: 'User created successfully' });
+        try {
+            // Insert user into the database
+            const userQuery = 'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)';
+            const [userResult] = await connection.query(userQuery, [username, email, hashedPassword]);
+
+            const userId = userResult.insertId; // Get the newly created user's ID
+
+            // Fetch the app_id for the "mhwd" application
+            const appQuery = 'SELECT app_id FROM applications WHERE app_name = ?';
+            const [appResult] = await connection.query(appQuery, ['mhwd']);
+
+            if (appResult.length === 0) {
+                throw new Error('Application "mhwd" not found in database.');
+            }
+
+            const appId = appResult[0].app_id;
+
+            // Fetch the role_id for the "mhwd_user" role
+            const roleQuery = 'SELECT role_id FROM roles WHERE role_name = ?';
+            const [roleResult] = await connection.query(roleQuery, ['mhwd_user']);
+
+            if (roleResult.length === 0) {
+                throw new Error('Role "mhwd_user" not found in database.');
+            }
+
+            const roleId = roleResult[0].role_id;
+
+            // Associate the user with the "mhwd" application and "mhwd_user" role
+            const userRoleQuery = 'INSERT INTO user_roles (user_id, app_id, role_id) VALUES (?, ?, ?)';
+            await connection.query(userRoleQuery, [userId, appId, roleId]);
+
+            // Commit the transaction
+            await connection.commit();
+
+            res.status(201).json({ message: 'User created and associated with mhwd application successfully' });
+        } catch (transactionErr) {
+            // Rollback the transaction in case of an error
+            await connection.rollback();
+            throw transactionErr;
+        } finally {
+            connection.release();
+        }
     } catch (err) {
         console.error('Error during registration:', err);
-        res.status(500).json({ message: 'Error creating user', error: err });
+        res.status(500).json({ message: 'Error creating user', error: err.message });
     }
 };
 
 // User Login
+const jwt = require('jsonwebtoken');
+const userpool = require('../pool/userpool');
+const bcrypt = require('bcryptjs');
+
 exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     try {
         // Retrieve user by email
         const query = 'SELECT * FROM users WHERE email = ?';
-        const [results] = await pool.promise().query(query, [email]);
+        const [results] = await userpool.promise().query(query, [email]);
 
         if (results.length === 0) {
             return res.status(404).json({ message: 'User not found' });
@@ -42,6 +87,18 @@ exports.login = async (req, res) => {
             return res.status(400).json({ message: 'Invalid password' });
         }
 
+        // Check if the user has access to the mhwd application
+        const appQuery = `
+            SELECT ur.user_id
+            FROM user_roles ur
+            JOIN applications a ON ur.app_id = a.app_id
+            WHERE ur.user_id = ? AND a.app_name = ?`;
+        const [appResults] = await userpool.promise().query(appQuery, [user.user_id, 'mhwd']);
+
+        if (appResults.length === 0) {
+            return res.status(403).json({ message: 'Access to the mhwd application is denied.' });
+        }
+
         // Generate JWT token
         const token = jwt.sign(
             { id: user.user_id, username: user.username },
@@ -52,9 +109,10 @@ exports.login = async (req, res) => {
         res.status(200).json({ message: 'Login successful', token });
     } catch (err) {
         console.error('Error during login:', err);
-        res.status(500).json({ message: 'Error logging in', error: err });
+        res.status(500).json({ message: 'Error logging in', error: err.message });
     }
 };
+
 
 // Get User Data (Authenticated)
 exports.getUserData = async (req, res) => {
@@ -63,7 +121,7 @@ exports.getUserData = async (req, res) => {
     try {
         // Retrieve user data
         const query = 'SELECT user_id, username, email FROM users WHERE user_id = ?';
-        const [results] = await pool.promise().query(query, [userId]);
+        const [results] = await userpool.promise().query(query, [userId]);
 
         if (results.length === 0) {
             return res.status(404).json({ message: 'User not found' });
@@ -83,7 +141,7 @@ exports.assignRole = async (req, res) => {
     try {
         // Assign role to user for a specific application
         const query = 'INSERT INTO user_roles (user_id, app_id, role_id) VALUES (?, ?, ?)';
-        await pool.promise().query(query, [userId, appId, roleId]);
+        await userpool.promise().query(query, [userId, appId, roleId]);
 
         res.status(200).json({ message: 'Role assigned successfully' });
     } catch (err) {
@@ -104,7 +162,7 @@ exports.getUserRoles = async (req, res) => {
             JOIN roles r ON ur.role_id = r.role_id
             JOIN applications a ON ur.app_id = a.app_id
             WHERE ur.user_id = ?`;
-        const [results] = await pool.promise().query(query, [userId]);
+        const [results] = await userpool.promise().query(query, [userId]);
 
         res.status(200).json({ roles: results });
     } catch (err) {
@@ -112,7 +170,6 @@ exports.getUserRoles = async (req, res) => {
         res.status(500).json({ message: 'Error fetching user roles', error: err });
     }
 };
-
 
 // User Logout
 exports.logout = (req, res) => {

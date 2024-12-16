@@ -2,11 +2,11 @@ const mysql = require('mysql2');
 const util = require('util');
 
 // Create a pool of connections to the "users" database
-const pool = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost', // Database host
-    user: process.env.DB_USER || 'root',     // Database user
-    password: process.env.DB_PASSWORD || '', // Database password
-    database: process.env.DB_USERS|| 'user_management', // Connect to the "users" database
+const userpool = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_USERS,
     waitForConnections: true,
     connectionLimit: 10, // Limit the number of concurrent connections
     queueLimit: 0,
@@ -18,10 +18,10 @@ const pool = mysql.createPool({
 });
 
 // Promisify for async/await usage
-pool.promise = pool.promise();
+userpool.promise = userpool.promise();
 
 // Handle connection errors gracefully
-pool.on('error', (err) => {
+userpool.on('error', (err) => {
     console.error('Unexpected MySQL error:', err);
     // Consider exiting the process or other recovery steps
     // process.exit(1);
@@ -30,7 +30,7 @@ pool.on('error', (err) => {
 // Function to test the connection
 const testConnection = async () => {
     try {
-        const connection = await pool.promise().getConnection();
+        const connection = await userpool.promise().getConnection();
         console.log('MySQL connection to "users" database established successfully.');
         connection.release();
     } catch (err) {
@@ -42,4 +42,4 @@ const testConnection = async () => {
 testConnection();
 
 // Export the pool to be used in other files
-module.exports = pool;
+module.exports = userpool;
