@@ -3,11 +3,6 @@ const userpool = require('../pool/userpool'); // Ensure userpool is already prom
 const bcrypt = require('bcryptjs');
 
 // User Registration
-const jwt = require('jsonwebtoken');
-const userpool = require('../pool/userpool');
-const bcrypt = require('bcryptjs');
-
-// User Registration
 exports.register = async (req, res) => {
     const { username, email, password } = req.body;
 
@@ -114,50 +109,25 @@ exports.login = async (req, res) => {
     }
 };
 
-// Get User Data, Applications, Roles, and Preferences
+// Get User Data (Authenticated)
 exports.getUserData = async (req, res) => {
     const userId = req.user.id; // Assumes user ID is injected via middleware
 
     try {
         // Retrieve user data
-        const userQuery = 'SELECT user_id, username, email FROM users WHERE user_id = ?';
-        const [userResults] = await userpool.query(userQuery, [userId]);
+        const query = 'SELECT user_id, username, email FROM users WHERE user_id = ?';
+        const [results] = await userpool.query(query, [userId]);
 
-        if (userResults.length === 0) {
+        if (results.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const user = userResults[0];
-
-        // Retrieve roles and applications
-        const rolesQuery = `
-            SELECT r.role_name, a.app_name
-            FROM user_roles ur
-            JOIN roles r ON ur.role_id = r.role_id
-            JOIN applications a ON ur.app_id = a.app_id
-            WHERE ur.user_id = ?`;
-        const [rolesResults] = await userpool.query(rolesQuery, [userId]);
-
-        // Retrieve user preferences
-        const preferencesQuery = `
-            SELECT p.preference_key, p.preference_description, up.preference_value
-            FROM user_preferences up
-            JOIN preferences p ON up.preference_id = p.preference_id
-            WHERE up.user_id = ?`;
-        const [preferencesResults] = await userpool.query(preferencesQuery, [userId]);
-
-        // Combine results
-        res.status(200).json({
-            user,
-            roles: rolesResults,
-            preferences: preferencesResults,
-        });
+        res.status(200).json({ user: results[0] });
     } catch (err) {
-        console.error('Error fetching user data, roles, or preferences:', err);
-        res.status(500).json({ message: 'Error fetching user data', error: err.message });
+        console.error('Error fetching user data:', err);
+        res.status(500).json({ message: 'Error fetching user data', error: err });
     }
 };
-
 
 // Assign Role to User
 exports.assignRole = async (req, res) => {
