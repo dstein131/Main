@@ -16,6 +16,7 @@ const { authenticateJWT } = require('./middleware/auth.middleware'); // Import J
 const emailRoutes = require('./routes/email.routes'); // Import email routes
 const blogRoutes = require('./routes/blog.routes'); // Import blog routes
 const chatgptRoutes = require('./routes/chatgpt.routes'); // Import ChatGPT routes
+const servicesRoutes = require('./routes/services.routes');
 
 // Load environment variables
 dotenv.config();
@@ -79,6 +80,7 @@ app.use('/api/users', userRoutes); // Mounting the user routes
 app.use('/api/email', emailRoutes); // Mounting the email routes
 app.use('/api/blog', blogRoutes); // Mounting the blog routes
 app.use('/api/chatgpt', chatgptRoutes); // Mounting the ChatGPT routes
+app.use('/api/services', servicesRoutes); // Mounting the services routes
 
 // Socket.io setup (for real-time functionalities)
 const http = require('http');
