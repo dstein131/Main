@@ -16,7 +16,8 @@ const { authenticateJWT } = require('./middleware/auth.middleware'); // Import J
 const emailRoutes = require('./routes/email.routes'); // Import email routes
 const blogRoutes = require('./routes/blog.routes'); // Import blog routes
 const chatgptRoutes = require('./routes/chatgpt.routes'); // Import ChatGPT routes
-const servicesRoutes = require('./routes/services.routes');
+const servicesRoutes = require('./routes/services.routes'); // Import services routes
+const cartsRoutes = require('./routes/carts.routes'); // Import carts routes
 
 // Load environment variables
 dotenv.config();
@@ -31,15 +32,15 @@ app.set('views', path.join(__dirname, 'views')); // Define the views directory
 // Middleware
 app.use(helmet());
 
-// Configure CORS to allow requests from both localhost and Netlify deployment
+// Configure CORS
 app.use(cors({
     origin: [
         'http://localhost:3000', // Local development
         'https://murrayhillwebdesign.netlify.app', // Netlify deployment
         'https://murrayhillwebdevelopment.com' // Custom domain
     ],
-    methods: 'GET,POST,PUT,DELETE', // Allowed HTTP methods
-    credentials: true // Allow cookies to be sent
+    methods: 'GET,POST,PUT,DELETE',
+    credentials: true
 }));
 
 app.use(bodyParser.json());
@@ -63,9 +64,8 @@ const storage = multer.diskStorage({
 });
 const upload = multer({
     storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // Set file size limit to 5MB
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
     fileFilter: (req, file, cb) => {
-        // Allow only specific file types
         const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'application/msword'];
         if (allowedTypes.includes(file.mimetype)) {
             cb(null, true);
@@ -76,11 +76,12 @@ const upload = multer({
 });
 
 // Use routes
-app.use('/api/users', userRoutes); // Mounting the user routes
-app.use('/api/email', emailRoutes); // Mounting the email routes
-app.use('/api/blog', blogRoutes); // Mounting the blog routes
-app.use('/api/chatgpt', chatgptRoutes); // Mounting the ChatGPT routes
-app.use('/api/services', servicesRoutes); // Mounting the services routes
+app.use('/api/users', userRoutes);
+app.use('/api/email', emailRoutes);
+app.use('/api/blog', blogRoutes);
+app.use('/api/chatgpt', chatgptRoutes);
+app.use('/api/services', servicesRoutes);
+app.use('/api/carts', cartsRoutes); // Mounting the carts routes
 
 // Socket.io setup (for real-time functionalities)
 const http = require('http');
