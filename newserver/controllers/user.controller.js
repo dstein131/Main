@@ -127,15 +127,82 @@ exports.getUserData = async (req, res) => {
     const userId = req.user.id; // Assumes user ID is injected via middleware
 
     try {
-        // Retrieve user data
-        const query = 'SELECT user_id, username, email FROM users WHERE user_id = ?';
-        const [results] = await userpool.query(query, [userId]);
+        // Retrieve user data along with super admin status
+        const userQuery = `
+            SELECT user_id, username, email, is_superadmin
+            FROM users
+            WHERE user_id = ?
+        `;
+        const [userResults] = await userpool.query(userQuery, [userId]);
 
-        if (results.length === 0) {
+        if (userResults.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        res.status(200).json({ user: results[0] });
+        const user = userResults[0];
+        const isSuperAdmin = user.is_superadmin === 1;
+
+        let applications = [];
+        let roles = [];
+
+        if (isSuperAdmin) {
+            // If the user is a super admin, fetch all applications and roles
+            const appsQuery = `
+                SELECT app_id, app_name
+                FROM applications
+            `;
+            const rolesQuery = `
+                SELECT role_id, role_name
+                FROM roles
+            `;
+
+            const [appsResult] = await userpool.query(appsQuery);
+            const [rolesResult] = await userpool.query(rolesQuery);
+
+            applications = appsResult;
+            roles = rolesResult;
+        } else {
+            // If not a super admin, fetch only the applications and roles associated with the user
+            const userRolesQuery = `
+                SELECT a.app_id, a.app_name, r.role_id, r.role_name
+                FROM user_roles ur
+                JOIN applications a ON ur.app_id = a.app_id
+                JOIN roles r ON ur.role_id = r.role_id
+                WHERE ur.user_id = ?
+            `;
+            const [userRoles] = await userpool.query(userRolesQuery, [userId]);
+
+            // Extract unique applications
+            applications = userRoles
+                .map(ur => ({
+                    app_id: ur.app_id,
+                    app_name: ur.app_name
+                }))
+                .filter((app, index, self) =>
+                    index === self.findIndex(a => a.app_id === app.app_id)
+                );
+
+            // Extract roles with associated application IDs
+            roles = userRoles.map(ur => ({
+                role_id: ur.role_id,
+                role_name: ur.role_name,
+                app_id: ur.app_id
+            }));
+        }
+
+        // Structure the response
+        const response = {
+            user: {
+                user_id: user.user_id,
+                username: user.username,
+                email: user.email
+            },
+            is_superadmin: isSuperAdmin,
+            applications: applications,
+            roles: roles
+        };
+
+        res.status(200).json(response);
     } catch (err) {
         console.error('Error fetching user data:', err);
         res.status(500).json({ message: 'Error fetching user data', error: err.message });
