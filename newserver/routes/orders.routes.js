@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const ordersController = require('../controllers/orders.controller');
-const authenticateJWT = require('../middleware/authenticateJWT'); // Ensure this middleware exists
+const { authenticateJWT } = require('../middleware/auth.middleware');
 
 /**
  * @route   GET /api/orders
