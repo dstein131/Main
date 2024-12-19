@@ -43,7 +43,10 @@ app.use(cors({
     credentials: true
 }));
 
-// Use body parsers for JSON and URL-encoded requests
+// Stripe webhook requires raw body parsing (apply before body parsers)
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
+// Use body parsers for JSON and URL-encoded requests (apply after raw middleware)
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -98,9 +101,6 @@ const upload = multer({
         }
     }
 });
-
-// Stripe webhook requires raw body parsing
-app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
 
 // Use routes
 app.use('/api/users', userRoutes);
