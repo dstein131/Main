@@ -5,25 +5,29 @@ const path = require('path');
 
 dotenv.config(); // Load environment variables from .env file
 
-// Create a pool of connections with SSL and additional configurations
+// Read the DigiCertGlobalRootCA.crt.pem file
+let sslCert;
+try {
+    sslCert = fs.readFileSync(path.join(__dirname, 'DigiCertGlobalRootCA.crt.pem'));
+    console.log('[SSL Certificate] DigiCertGlobalRootCA.crt.pem loaded successfully.');
+} catch (err) {
+    console.error('[SSL Certificate Error] Failed to load DigiCertGlobalRootCA.crt.pem:', err.message);
+    console.error('Ensure the certificate file is located at:', path.join(__dirname, 'DigiCertGlobalRootCA.crt.pem'));
+    process.exit(1); // Exit the process if the SSL certificate cannot be loaded
+}
+
+// Create a pool of connections for the main database with SSL, mirroring userpool's pattern
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'resume_server',
     waitForConnections: true,
-    connectionLimit: 10, // Limit the number of concurrent connections
+    connectionLimit: 10,
     queueLimit: 0,
-    // Keep-Alive options
-    connectTimeout: 10000, // 10 seconds
-    acquireTimeout: 10000, // 10 seconds
-    timeout: 30000, // 30 seconds
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 30000, // 30 seconds
-    // SSL Configuration
+    connectTimeout: 10000, // 10 seconds for initial connection timeout
     ssl: {
-        rejectUnauthorized: true, // Enforce certificate validation
-        ca: fs.readFileSync(path.resolve(__dirname, 'DigiCertGlobalRootCA.crt.pem')), // Path to the DigiCert CA file
+        ca: sslCert, // Include the SSL certificate, no rejectUnauthorized here
     },
 });
 
@@ -32,7 +36,7 @@ pool.on('error', (err) => {
     console.error('[MySQL Pool Error] An unexpected error occurred:', err.message);
     console.error('Error Code:', err.code);
     console.error('Stack Trace:', err.stack);
-    // Depending on the application, you might want to terminate the process
+    // Consider exiting the process if this is a critical error
     // process.exit(1);
 });
 
@@ -56,7 +60,7 @@ console.log('[MySQL Pool Configuration] Pool initialized with the following sett
 console.log(`Host: ${process.env.DB_HOST || 'localhost'}`);
 console.log(`User: ${process.env.DB_USER || 'root'}`);
 console.log(`Database: ${process.env.DB_NAME || 'resume_server'}`);
-console.log(`Connection Limit: ${10}`);
+console.log(`Connection Limit: 10`);
 console.log('SSL: Enabled');
 
 // Invoke the test connection (optional, can be removed in production)
