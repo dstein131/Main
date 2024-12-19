@@ -109,15 +109,14 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
     const userId = parseInt(metadata.user_id, 10);
 
     try {
-        // Start a transaction
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
 
-            // Create an order
+            // Create an order with order_status = 'paid'
             const [orderResult] = await connection.query(
                 'INSERT INTO orders (user_id, stripe_payment_intent, order_status, total_amount, currency) VALUES (?, ?, ?, ?, ?)',
-                [userId, paymentIntentId, 'completed', amount / 100, currency]
+                [userId, paymentIntentId, 'paid', amount / 100, currency]
             );
             const orderId = orderResult.insertId;
 
@@ -177,7 +176,7 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
 
             // Clear the user's cart after committing the transaction
             await clearUserCart(userId);
-            console.log(`Order ${orderId} created and cart cleared for user ${userId}.`);
+            console.log(`Order ${orderId} created with status 'paid' and cart cleared for user ${userId}.`);
         } catch (err) {
             await connection.rollback();
             connection.release();
@@ -187,6 +186,7 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
         console.error('Database connection error:', err);
     }
 };
+
 
 /**
  * Helper function to handle failed payments
