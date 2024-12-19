@@ -109,93 +109,86 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
     const userId = parseInt(metadata.user_id, 10);
 
     try {
-        const connection = await pool.getConnection();
-        try {
-            // Start a transaction
-            await connection.beginTransaction();
+        // Start a transaction
+        await pool.query('START TRANSACTION');
 
-            console.log('Creating order...');
-            const [orderResult] = await connection.query(
-                `INSERT INTO orders 
-                    (user_id, stripe_payment_intent, order_status, total_amount, currency) 
-                 VALUES (?, ?, ?, ?, ?)`,
-                [userId, paymentIntentId, 'completed', amount / 100, currency]
-            );
-            const orderId = orderResult.insertId;
-            console.log('Order created with ID:', orderId);
+        console.log('Creating order...');
+        const [orderResult] = await pool.query(
+            `INSERT INTO orders 
+                (user_id, stripe_payment_intent, order_status, total_amount, currency) 
+             VALUES (?, ?, ?, ?, ?)`,
+            [userId, paymentIntentId, 'completed', amount / 100, currency]
+        );
+        const orderId = orderResult.insertId;
+        console.log('Order created with ID:', orderId);
 
-            // Fetch user's cart
-            const [carts] = await connection.query('SELECT cart_id FROM carts WHERE user_id = ?', [userId]);
-            if (carts.length === 0) {
-                throw new Error(`No cart found for user ID: ${userId}`);
-            }
-            const cartId = carts[0].cart_id;
-
-            // Fetch cart items
-            const [cartItems] = await connection.query(
-                `SELECT ci.cart_item_id, ci.service_id, ci.quantity, ci.price 
-                 FROM cart_items ci 
-                 WHERE ci.cart_id = ?`,
-                [cartId]
-            );
-
-            if (cartItems.length === 0) {
-                throw new Error('No items found in the user’s cart.');
-            }
-
-            // Insert items into `order_items` and handle addons
-            for (const item of cartItems) {
-                const { service_id, quantity, price, cart_item_id } = item;
-                const totalPrice = parseFloat(price) * parseInt(quantity, 10);
-
-                await connection.query(
-                    `INSERT INTO order_items 
-                        (order_id, service_id, quantity, price, total_price) 
-                     VALUES (?, ?, ?, ?, ?)`,
-                    [orderId, service_id, quantity, price, totalPrice]
-                );
-
-                // Fetch and insert addons for each item
-                const [addons] = await connection.query(
-                    `SELECT addon_id, price 
-                     FROM cart_item_addons 
-                     WHERE cart_item_id = ?`,
-                    [cart_item_id]
-                );
-
-                for (const addon of addons) {
-                    await connection.query(
-                        `INSERT INTO order_addons 
-                            (order_id, addon_id, price) 
-                         VALUES (?, ?, ?)`,
-                        [orderId, addon.addon_id, addon.price]
-                    );
-                }
-            }
-
-            // Insert payment record
-            await connection.query(
-                `INSERT INTO payments 
-                    (order_id, payment_method, payment_status, amount, payment_date) 
-                 VALUES (?, ?, ?, ?, ?)`,
-                [orderId, 'credit_card', 'completed', amount / 100, new Date()]
-            );
-
-            // Commit the transaction
-            await connection.commit();
-            console.log(`Order ${orderId} committed successfully.`);
-
-            // Clear user's cart
-            await clearUserCart(userId);
-            console.log(`Cart cleared for user ID: ${userId}`);
-        } catch (err) {
-            await connection.rollback();
-            console.error('Transaction rolled back due to error:', err);
-        } finally {
-            connection.release();
+        // Fetch user's cart
+        const [carts] = await pool.query('SELECT cart_id FROM carts WHERE user_id = ?', [userId]);
+        if (carts.length === 0) {
+            throw new Error(`No cart found for user ID: ${userId}`);
         }
+        const cartId = carts[0].cart_id;
+
+        // Fetch cart items
+        const [cartItems] = await pool.query(
+            `SELECT ci.cart_item_id, ci.service_id, ci.quantity, ci.price 
+             FROM cart_items ci 
+             WHERE ci.cart_id = ?`,
+            [cartId]
+        );
+
+        if (cartItems.length === 0) {
+            throw new Error('No items found in the user’s cart.');
+        }
+
+        // Insert items into `order_items` and handle addons
+        for (const item of cartItems) {
+            const { service_id, quantity, price, cart_item_id } = item;
+            const totalPrice = parseFloat(price) * parseInt(quantity, 10);
+
+            await pool.query(
+                `INSERT INTO order_items 
+                    (order_id, service_id, quantity, price, total_price) 
+                 VALUES (?, ?, ?, ?, ?)`,
+                [orderId, service_id, quantity, price, totalPrice]
+            );
+
+            // Fetch and insert addons for each item
+            const [addons] = await pool.query(
+                `SELECT addon_id, price 
+                 FROM cart_item_addons 
+                 WHERE cart_item_id = ?`,
+                [cart_item_id]
+            );
+
+            for (const addon of addons) {
+                await pool.query(
+                    `INSERT INTO order_addons 
+                        (order_id, addon_id, price) 
+                     VALUES (?, ?, ?)`,
+                    [orderId, addon.addon_id, addon.price]
+                );
+            }
+        }
+
+        // Insert payment record
+        await pool.query(
+            `INSERT INTO payments 
+                (order_id, payment_method, payment_status, amount, payment_date) 
+             VALUES (?, ?, ?, ?, ?)`,
+            [orderId, 'credit_card', 'completed', amount / 100, new Date()]
+        );
+
+        // Commit the transaction
+        await pool.query('COMMIT');
+        console.log(`Order ${orderId} committed successfully.`);
+
+        // Clear user's cart
+        await clearUserCart(userId);
+        console.log(`Cart cleared for user ID: ${userId}`);
     } catch (err) {
-        console.error('Database connection error:', err);
+        await pool.query('ROLLBACK');
+        console.error('Transaction rolled back due to error:', err);
     }
 };
 
