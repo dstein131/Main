@@ -1,6 +1,6 @@
 // controllers/orders.controller.js
 
-const ordersService = require('../services/orders.service');
+const ordersService = require('../services/orders');
 
 /**
  * Get all orders for the authenticated user.
