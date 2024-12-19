@@ -18,6 +18,7 @@ const blogRoutes = require('./routes/blog.routes'); // Import blog routes
 const chatgptRoutes = require('./routes/chatgpt.routes'); // Import ChatGPT routes
 const servicesRoutes = require('./routes/services.routes'); // Import services routes
 const cartsRoutes = require('./routes/carts.routes'); // Import carts routes
+const paymentsRoutes = require('./routes/payments.routes'); // Import payments routes
 
 // Load environment variables
 dotenv.config();
@@ -43,6 +44,7 @@ app.use(cors({
     credentials: true
 }));
 
+// Important: Use bodyParser.json() and bodyParser.urlencoded() before defining routes
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(morgan('dev'));
@@ -82,6 +84,7 @@ app.use('/api/blog', blogRoutes);
 app.use('/api/chatgpt', chatgptRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/carts', cartsRoutes); // Mounting the carts routes
+app.use('/api/payments', paymentsRoutes); // Mounting the payments routes
 
 // Socket.io setup (for real-time functionalities)
 const http = require('http');
