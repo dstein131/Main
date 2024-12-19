@@ -26,8 +26,8 @@ const upload = multer({
 const transporter = nodemailer.createTransport({
   service: 'gmail', // Use Gmail service
   auth: {
-    user: process.env.EMAIL_USER, // Your Gmail address
-    pass: process.env.EMAIL_PASS, // Your Gmail account password or app password
+    user: process.env.EMAIL_USER, 
+    pass: process.env.EMAIL_PASS, 
   },
   logger: true, // Enable Nodemailer logging
   debug: true,  // Show debugging output
@@ -50,8 +50,8 @@ router.post('/send', upload.single('file'), async (req, res) => {
 
   // Build email options
   const mailOptions = {
-    from: `"${name}" <${process.env.EMAIL_USER}>`, // Sender's Gmail address
-    to: process.env.RECIPIENT_EMAIL, // Your recipient's email, stored in the .env file
+    from: `"${name}" <${process.env.EMAIL_USER}>`, 
+    to: process.env.RECIPIENT_EMAIL, 
     subject: `Contact Form Submission from ${name}`,
     text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
     html: `<p><strong>Name:</strong> ${name}</p>
