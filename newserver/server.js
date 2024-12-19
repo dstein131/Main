@@ -43,11 +43,11 @@ app.use(cors({
     credentials: true
 }));
 
-// Important: Use bodyParser.json() and bodyParser.urlencoded() before defining routes
+// Use body parsers for JSON and URL-encoded requests
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// Logging setup
+// Setup logging
 const logsDir = path.join(__dirname, 'logs');
 if (!fs.existsSync(logsDir)) {
     fs.mkdirSync(logsDir, { recursive: true });
@@ -56,7 +56,7 @@ const accessLogStream = fs.createWriteStream(path.join(logsDir, 'access.log'), {
 app.use(morgan('combined', { stream: accessLogStream })); // Log requests to a file
 app.use(morgan('dev')); // Log requests to the console
 
-// Override default console logs for detailed output
+// Custom console logging for server logs
 const logFile = fs.createWriteStream(path.join(logsDir, 'server.log'), { flags: 'a' });
 const log = (...args) => {
     const message = `[INFO] ${new Date().toISOString()} ${args.join(' ')}\n`;
@@ -99,14 +99,17 @@ const upload = multer({
     }
 });
 
+// Stripe webhook requires raw body parsing
+app.use('/api/payments/webhook', express.raw({ type: 'application/json' }));
+
 // Use routes
 app.use('/api/users', userRoutes);
 app.use('/api/email', emailRoutes);
 app.use('/api/blog', blogRoutes);
 app.use('/api/chatgpt', chatgptRoutes);
 app.use('/api/services', servicesRoutes);
-app.use('/api/carts', cartsRoutes); // Mounting the carts routes
-app.use('/api/payments', paymentsRoutes); // Mounting the payments routes
+app.use('/api/carts', cartsRoutes);
+app.use('/api/payments', paymentsRoutes);
 app.use('/api/orders', ordersRoutes);
 
 // Socket.io setup (for real-time functionalities)
@@ -120,7 +123,7 @@ io.on('connection', (socket) => {
     });
 });
 
-// Import and use the landing page route
+// Landing page route
 const landingPageRoute = require('./routes/landingPage.routes');
 app.use('/', landingPageRoute); // Mount the landing page route at root
 
