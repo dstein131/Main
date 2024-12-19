@@ -87,10 +87,14 @@ const handleWebhook = async (req, res) => {
     switch (event.type) {
         case 'payment_intent.succeeded':
             console.log('PaymentIntent succeeded:', event.data.object);
+            await handlePaymentIntentSucceeded(event.data.object);
             break;
+
         case 'payment_intent.payment_failed':
             console.error('Payment failed:', event.data.object);
+            await handlePaymentIntentFailed(event.data.object);
             break;
+
         default:
             console.warn(`Unhandled event type: ${event.type}`);
     }
