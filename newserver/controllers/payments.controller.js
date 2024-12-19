@@ -20,7 +20,7 @@ exports.createPaymentIntent = async (req, res) => {
         // Calculate total amount
         let totalAmount = 0;
         for (const item of items) {
-            const { service_id, quantity, addons } = item;
+            const { service_id, quantity = 1, addons = [] } = item;
 
             // Fetch service price
             const [services] = await pool.query('SELECT price FROM services WHERE service_id = ?', [service_id]);
@@ -28,19 +28,19 @@ exports.createPaymentIntent = async (req, res) => {
                 return res.status(404).json({ message: `Service with ID ${service_id} not found.` });
             }
             const servicePrice = parseFloat(services[0].price);
-            totalAmount += servicePrice * (quantity || 1);
+            totalAmount += servicePrice * quantity;
 
             // Add addons price
             if (addons && Array.isArray(addons)) {
                 for (const addon of addons) {
-                    const { addon_id, quantity: addonQty } = addon;
+                    const { addon_id, quantity: addonQty = 1 } = addon;
 
                     const [addonsData] = await pool.query('SELECT price FROM service_addons WHERE addon_id = ?', [addon_id]);
                     if (addonsData.length === 0) {
                         return res.status(404).json({ message: `Addon with ID ${addon_id} not found.` });
                     }
                     const addonPrice = parseFloat(addonsData[0].price);
-                    totalAmount += addonPrice * (addonQty || 1);
+                    totalAmount += addonPrice * addonQty;
                 }
             }
         }
@@ -177,6 +177,7 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
 
             // Clear the user's cart after committing the transaction
             await clearUserCart(userId);
+            console.log(`Order ${orderId} created and cart cleared for user ${userId}.`);
         } catch (err) {
             await connection.rollback();
             connection.release();

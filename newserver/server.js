@@ -19,6 +19,7 @@ const chatgptRoutes = require('./routes/chatgpt.routes'); // Import ChatGPT rout
 const servicesRoutes = require('./routes/services.routes'); // Import services routes
 const cartsRoutes = require('./routes/carts.routes'); // Import carts routes
 const paymentsRoutes = require('./routes/payments.routes'); // Import payments routes
+const ordersRoutes = require('./routes/orders.routes');
 
 // Load environment variables
 dotenv.config();
@@ -85,6 +86,7 @@ app.use('/api/chatgpt', chatgptRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/carts', cartsRoutes); // Mounting the carts routes
 app.use('/api/payments', paymentsRoutes); // Mounting the payments routes
+app.use('/api/orders', ordersRoutes);
 
 // Socket.io setup (for real-time functionalities)
 const http = require('http');

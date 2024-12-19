@@ -1,6 +1,6 @@
 // services/cartService.js
 
-const pool = require('../pool/pool'); // main DB pool
+const pool = require('../pool/pool'); // Main DB pool
 
 /**
  * Ensures that the user has a cart. If not, creates one.
