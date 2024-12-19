@@ -1,6 +1,6 @@
 // services/cartService.js
 
-const pool = require('../pool/pool'); // Main DB pool
+const pool = require('../pool/pool'); // main DB pool
 
 /**
  * Ensures that the user has a cart. If not, creates one.
@@ -35,6 +35,7 @@ const clearUserCart = async (userId) => {
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
+        console.log('Transaction started for clearing cart.');
 
         // Delete all cart item addons
         await connection.query(
@@ -44,11 +45,14 @@ const clearUserCart = async (userId) => {
              WHERE ci.cart_id = ?`,
             [cartId]
         );
+        console.log(`Deleted cart item addons for cart ID: ${cartId}`);
 
         // Delete all cart items
         await connection.query('DELETE FROM cart_items WHERE cart_id = ?', [cartId]);
+        console.log(`Deleted cart items for cart ID: ${cartId}`);
 
         await connection.commit();
+        console.log('Transaction committed for clearing cart.');
     } catch (err) {
         await connection.rollback();
         console.error('Error clearing user cart:', err);

@@ -1,4 +1,4 @@
-// services/orders.service.js
+// services/orders.js
 
 const pool = require('../pool/pool'); // Main DB pool
 
@@ -15,7 +15,7 @@ const getUserOrders = async (userId) => {
             `SELECT 
                 o.order_id, 
                 o.order_status, 
-                o.total_price, 
+                o.total_amount, 
                 o.created_at, 
                 o.updated_at,
                 o.stripe_payment_intent,
@@ -49,33 +49,33 @@ const getUserOrders = async (userId) => {
                     [order.order_id]
                 );
 
-                // For each order item, fetch addons
-                const itemsWithAddons = await Promise.all(
-                    orderItems.map(async (item) => {
-                        const [addons] = await connection.query(
-                            `SELECT 
-                                oa.order_addon_id,
-                                oa.addon_id,
-                                sa.name,
-                                oa.price
-                             FROM order_addons oa
-                             JOIN service_addons sa ON oa.addon_id = sa.addon_id
-                             WHERE oa.order_id = ? AND oa.addon_id IN (
-                                 SELECT addon_id FROM order_addons WHERE order_id = ? AND addon_id = ?
-                             )`,
-                            [order.order_id, order.order_id, item.service_id]
-                        );
-
-                        return {
-                            ...item,
-                            addons: addons || [],
-                        };
-                    })
+                // Fetch addons for the order
+                const [addons] = await connection.query(
+                    `SELECT 
+                        oa.order_addon_id,
+                        oa.addon_id,
+                        sa.name,
+                        oa.price
+                     FROM order_addons oa
+                     JOIN service_addons sa ON oa.addon_id = sa.addon_id
+                     WHERE oa.order_id = ?`,
+                    [order.order_id]
                 );
+
+                // Map addons to order items (if applicable)
+                // Since order_addons are linked to orders, not specific order_items,
+                // you might need to adjust this logic based on your data model.
 
                 return {
                     ...order,
-                    items: itemsWithAddons,
+                    items: orderItems.map(item => ({
+                        ...item,
+                        addons: addons.filter(addon => addon.order_id === order.order_id).map(addon => ({
+                            addon_id: addon.addon_id,
+                            name: addon.name,
+                            price: parseFloat(addon.price),
+                        })),
+                    })),
                 };
             })
         );
@@ -103,7 +103,7 @@ const getOrderById = async (userId, orderId) => {
             `SELECT 
                 o.order_id, 
                 o.order_status, 
-                o.total_price, 
+                o.total_amount, 
                 o.created_at, 
                 o.updated_at,
                 o.stripe_payment_intent,
@@ -139,33 +139,32 @@ const getOrderById = async (userId, orderId) => {
             [order.order_id]
         );
 
-        // For each order item, fetch addons
-        const itemsWithAddons = await Promise.all(
-            orderItems.map(async (item) => {
-                const [addons] = await connection.query(
-                    `SELECT 
-                        oa.order_addon_id,
-                        oa.addon_id,
-                        sa.name,
-                        oa.price
-                     FROM order_addons oa
-                     JOIN service_addons sa ON oa.addon_id = sa.addon_id
-                     WHERE oa.order_id = ? AND oa.addon_id IN (
-                         SELECT addon_id FROM order_addons WHERE order_id = ? AND addon_id = ?
-                     )`,
-                    [order.order_id, order.order_id, item.service_id]
-                );
-
-                return {
-                    ...item,
-                    addons: addons || [],
-                };
-            })
+        // Fetch addons for the order
+        const [addons] = await connection.query(
+            `SELECT 
+                oa.order_addon_id,
+                oa.addon_id,
+                sa.name,
+                oa.price
+             FROM order_addons oa
+             JOIN service_addons sa ON oa.addon_id = sa.addon_id
+             WHERE oa.order_id = ?`,
+            [order.order_id]
         );
+
+        // Map addons to order items (if applicable)
+        // Adjust based on your data model.
 
         return {
             ...order,
-            items: itemsWithAddons,
+            items: orderItems.map(item => ({
+                ...item,
+                addons: addons.filter(addon => addon.order_id === order.order_id).map(addon => ({
+                    addon_id: addon.addon_id,
+                    name: addon.name,
+                    price: parseFloat(addon.price),
+                })),
+            })),
         };
     } catch (error) {
         console.error('Error fetching order by ID:', error);
