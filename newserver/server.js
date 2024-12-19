@@ -1,5 +1,3 @@
-// server.js
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -48,7 +46,30 @@ app.use(cors({
 // Important: Use bodyParser.json() and bodyParser.urlencoded() before defining routes
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
-app.use(morgan('dev'));
+
+// Logging setup
+const logsDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logsDir)) {
+    fs.mkdirSync(logsDir, { recursive: true });
+}
+const accessLogStream = fs.createWriteStream(path.join(logsDir, 'access.log'), { flags: 'a' });
+app.use(morgan('combined', { stream: accessLogStream })); // Log requests to a file
+app.use(morgan('dev')); // Log requests to the console
+
+// Override default console logs for detailed output
+const logFile = fs.createWriteStream(path.join(logsDir, 'server.log'), { flags: 'a' });
+const log = (...args) => {
+    const message = `[INFO] ${new Date().toISOString()} ${args.join(' ')}\n`;
+    process.stdout.write(message);
+    logFile.write(message);
+};
+const error = (...args) => {
+    const message = `[ERROR] ${new Date().toISOString()} ${args.join(' ')}\n`;
+    process.stderr.write(message);
+    logFile.write(message);
+};
+console.log = log;
+console.error = error;
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -107,9 +128,11 @@ app.use('/', landingPageRoute); // Mount the landing page route at root
 app.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {
         // Multer-specific errors
+        console.error('Multer error:', err.message);
         res.status(400).json({ success: false, message: err.message });
     } else if (err) {
         // Other errors
+        console.error('Server error:', err.message);
         res.status(500).json({ success: false, message: err.message });
     } else {
         next();
