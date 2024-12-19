@@ -1,10 +1,13 @@
 // controllers/payments.controller.js
 
 const stripe = require('../config/stripe');
-const pool = require('../pool/pool'); // main DB pool
+const pool = require('../pool/pool'); // Main DB pool
 const { clearUserCart } = require('../services/cartService'); // Import the cart service
 
-// Create a Payment Intent
+/**
+ * Create a Payment Intent
+ * POST /api/payments/create-intent
+ */
 exports.createPaymentIntent = async (req, res) => {
     const userId = req.user.id; // Ensure authenticateJWT middleware attaches user to req
     const { items, currency = 'usd' } = req.body;
@@ -63,7 +66,10 @@ exports.createPaymentIntent = async (req, res) => {
     }
 };
 
-// Handle Stripe Webhooks
+/**
+ * Handle Stripe Webhooks
+ * POST /api/payments/webhook
+ */
 exports.handleWebhook = async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
@@ -94,7 +100,10 @@ exports.handleWebhook = async (req, res) => {
     res.json({ received: true });
 };
 
-// Helper function to handle successful payments
+/**
+ * Helper function to handle successful payments
+ * Inserts order, order items, order addons, and payment records into the database.
+ */
 const handlePaymentIntentSucceeded = async (paymentIntent) => {
     const { id: paymentIntentId, metadata, amount, currency } = paymentIntent;
     const userId = parseInt(metadata.user_id, 10);
@@ -108,20 +117,16 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
             // Create an order
             const [orderResult] = await connection.query(
                 'INSERT INTO orders (user_id, stripe_payment_intent, order_status, total_amount, currency) VALUES (?, ?, ?, ?, ?)',
-                [userId, paymentIntentId, 'paid', amount / 100, currency]
+                [userId, paymentIntentId, 'completed', amount / 100, currency]
             );
             const orderId = orderResult.insertId;
 
-            // Fetch or create a cart associated with the user
+            // Fetch cart associated with the user
             const [carts] = await connection.query('SELECT cart_id FROM carts WHERE user_id = ?', [userId]);
-            let cartId;
-            if (carts.length > 0) {
-                cartId = carts[0].cart_id;
-            } else {
-                // Create a new cart if not exists
-                const [cartResult] = await connection.query('INSERT INTO carts (user_id) VALUES (?)', [userId]);
-                cartId = cartResult.insertId;
+            if (carts.length === 0) {
+                throw new Error('No cart found for the user.');
             }
+            const cartId = carts[0].cart_id;
 
             // Fetch cart items
             const [cartItems] = await connection.query(
@@ -135,9 +140,11 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
             // Insert order items
             for (const item of cartItems) {
                 const { service_id, quantity, price, cart_item_id } = item;
+                const totalPrice = parseFloat(price) * parseInt(quantity, 10);
+
                 await connection.query(
                     'INSERT INTO order_items (order_id, service_id, quantity, price, total_price) VALUES (?, ?, ?, ?, ?)',
-                    [orderId, service_id, quantity, price, price * quantity]
+                    [orderId, service_id, quantity, price, totalPrice]
                 );
 
                 // Fetch addons for each cart item
@@ -164,6 +171,7 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
                 [orderId, 'credit_card', 'completed', amount / 100, new Date()]
             );
 
+            // Commit the transaction
             await connection.commit();
             connection.release();
 
@@ -179,7 +187,10 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
     }
 };
 
-// Helper function to handle failed payments
+/**
+ * Helper function to handle failed payments
+ * Updates the order status to 'failed' and logs the error.
+ */
 const handlePaymentIntentFailed = async (paymentIntent) => {
     const { id: paymentIntentId, metadata, amount, currency, last_payment_error } = paymentIntent;
     const userId = parseInt(metadata.user_id, 10);
