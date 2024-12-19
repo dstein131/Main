@@ -1,24 +1,7 @@
 // controllers/carts.controller.js
 
 const pool = require('../pool/pool'); // main DB pool
-const userpool = require('../pool/userpool'); // user_management DB pool
-
-/**
- * Ensure the user has a cart. If not, create one.
- * @param {number} userId - The ID of the user.
- * @returns {number} The cart_id of the user's cart.
- */
-const ensureUserCart = async (userId) => {
-    // Check if user has an existing cart
-    const [existingCarts] = await pool.query('SELECT cart_id FROM carts WHERE user_id = ?', [userId]);
-    if (existingCarts.length > 0) {
-        return existingCarts[0].cart_id;
-    }
-
-    // Create a new cart for the user
-    const [result] = await pool.query('INSERT INTO carts (user_id) VALUES (?)', [userId]);
-    return result.insertId;
-};
+const { ensureUserCart, clearUserCart } = require('../services/cartService'); // Import the cart service
 
 /**
  * Get User Cart
@@ -48,7 +31,7 @@ exports.getUserCart = async (req, res) => {
                 `SELECT cia.cart_item_addon_id, cia.cart_item_id, cia.addon_id, sa.name, cia.price
                  FROM cart_item_addons cia
                  JOIN service_addons sa ON cia.addon_id = sa.addon_id
-                 WHERE cia.cart_item_id IN (?)
+                 WHERE cia.cart_item_id IN (?) 
                  ORDER BY cia.created_at ASC`, 
                  [cartItemIds]
             );
@@ -58,7 +41,11 @@ exports.getUserCart = async (req, res) => {
         // Combine addons with their respective cart items
         const itemsWithAddons = items.map(item => ({
             ...item,
-            addons: addons.filter(a => a.cart_item_id === item.cart_item_id)
+            addons: addons.filter(a => a.cart_item_id === item.cart_item_id).map(addon => ({
+                addon_id: addon.addon_id,
+                name: addon.name,
+                price: addon.price,
+            }))
         }));
 
         res.status(200).json({ cart_id: cartId, items: itemsWithAddons });
@@ -106,7 +93,7 @@ exports.addItemToCart = async (req, res) => {
         // Insert addons if provided
         for (const addon of addons) {
             const { addon_id, price } = addon;
-            if (!addon_id || !price) {
+            if (!addon_id || price === undefined) {
                 return res.status(400).json({ message: 'Addon id and price are required for each addon.' });
             }
             await pool.query(
@@ -132,7 +119,7 @@ exports.updateCartItemQuantity = async (req, res) => {
     const { cart_item_id } = req.params;
     const { quantity } = req.body;
 
-    if (!quantity || quantity < 1) {
+    if (quantity === undefined || quantity < 1) {
         return res.status(400).json({ message: 'Quantity must be at least 1.' });
     }
 
@@ -201,19 +188,7 @@ exports.clearCart = async (req, res) => {
     const userId = req.user.id;
 
     try {
-        const cartId = await ensureUserCart(userId);
-
-        // Delete all cart items and addons for this cart
-        await pool.query(
-            `DELETE cia 
-             FROM cart_item_addons cia
-             JOIN cart_items ci ON cia.cart_item_id = ci.cart_item_id
-             WHERE ci.cart_id = ?`,
-            [cartId]
-        );
-
-        await pool.query('DELETE FROM cart_items WHERE cart_id = ?', [cartId]);
-
+        await clearUserCart(userId);
         res.status(200).json({ message: 'Cart cleared successfully.' });
     } catch (err) {
         console.error('Error clearing cart:', err);
