@@ -8,7 +8,7 @@ const { clearUserCart } = require('../services/cartService'); // Import the cart
  * Create a Payment Intent
  * POST /api/payments/create-intent
  */
-exports.createPaymentIntent = async (req, res) => {
+const createPaymentIntent = async (req, res) => {
     const userId = req.user.id; // Ensure authenticateJWT middleware attaches user to req
     const { items, currency = 'usd' } = req.body;
 
@@ -70,13 +70,12 @@ exports.createPaymentIntent = async (req, res) => {
  * Handle Stripe Webhooks
  * POST /api/payments/webhook
  */
-exports.handleWebhook = async (req, res) => {
+const handleWebhook = async (req, res) => {
     const sig = req.headers['stripe-signature'];
     let event;
 
     try {
         event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-        console.log(`Received event: ${event.type}`);
     } catch (err) {
         console.error('Webhook signature verification failed:', err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
@@ -109,14 +108,11 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
     const { id: paymentIntentId, metadata, amount, currency } = paymentIntent;
     const userId = parseInt(metadata.user_id, 10);
 
-    console.log(`Processing payment intent: ${paymentIntentId} for user: ${userId}`);
-
     try {
         // Start a transaction
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
-            console.log('Transaction started.');
 
             // Create an order
             const [orderResult] = await connection.query(
@@ -124,7 +120,6 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
                 [userId, paymentIntentId, 'completed', amount / 100, currency]
             );
             const orderId = orderResult.insertId;
-            console.log(`Order created with ID: ${orderId}`);
 
             // Fetch cart associated with the user
             const [carts] = await connection.query('SELECT cart_id FROM carts WHERE user_id = ?', [userId]);
@@ -132,7 +127,6 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
                 throw new Error('No cart found for the user.');
             }
             const cartId = carts[0].cart_id;
-            console.log(`Fetched cart ID: ${cartId}`);
 
             // Fetch cart items
             const [cartItems] = await connection.query(
@@ -142,23 +136,16 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
                  WHERE ci.cart_id = ?`,
                 [cartId]
             );
-            console.log(`Fetched ${cartItems.length} cart items.`);
-
-            if (cartItems.length === 0) {
-                console.warn(`No cart items found for cart ID: ${cartId}`);
-            }
 
             // Insert order items
             for (const item of cartItems) {
                 const { service_id, quantity, price, cart_item_id } = item;
                 const totalPrice = parseFloat(price) * parseInt(quantity, 10);
 
-                const [orderItemResult] = await connection.query(
+                await connection.query(
                     'INSERT INTO order_items (order_id, service_id, quantity, price, total_price) VALUES (?, ?, ?, ?, ?)',
                     [orderId, service_id, quantity, price, totalPrice]
                 );
-                const orderItemId = orderItemResult.insertId;
-                console.log(`Inserted order item ID: ${orderItemId}`);
 
                 // Fetch addons for each cart item
                 const [addons] = await connection.query(
@@ -167,40 +154,34 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
                      WHERE cart_item_id = ?`,
                     [cart_item_id]
                 );
-                console.log(`Fetched ${addons.length} addons for cart item ID: ${cart_item_id}`);
 
                 // Insert order addons
                 for (const addon of addons) {
                     const { addon_id, price: addonPrice } = addon;
-                    const [orderAddonResult] = await connection.query(
+                    await connection.query(
                         'INSERT INTO order_addons (order_id, addon_id, price) VALUES (?, ?, ?)',
                         [orderId, addon_id, addonPrice]
                     );
-                    const orderAddonId = orderAddonResult.insertId;
-                    console.log(`Inserted order addon ID: ${orderAddonId}`);
                 }
             }
 
             // Insert payment record
-            const [paymentResult] = await connection.query(
+            await connection.query(
                 'INSERT INTO payments (order_id, payment_method, payment_status, amount, payment_date) VALUES (?, ?, ?, ?, ?)',
                 [orderId, 'credit_card', 'completed', amount / 100, new Date()]
             );
-            const paymentId = paymentResult.insertId;
-            console.log(`Inserted payment record ID: ${paymentId}`);
 
             // Commit the transaction
             await connection.commit();
-            console.log('Transaction committed.');
             connection.release();
 
             // Clear the user's cart after committing the transaction
             await clearUserCart(userId);
-            console.log(`Cart cleared for user ID: ${userId}.`);
+            console.log(`Order ${orderId} created and cart cleared for user ${userId}.`);
         } catch (err) {
             await connection.rollback();
             connection.release();
-            console.error('Transaction rolled back due to error:', err);
+            console.error('Error processing payment intent succeeded:', err);
         }
     } catch (err) {
         console.error('Database connection error:', err);
@@ -215,8 +196,6 @@ const handlePaymentIntentFailed = async (paymentIntent) => {
     const { id: paymentIntentId, metadata, amount, currency, last_payment_error } = paymentIntent;
     const userId = parseInt(metadata.user_id, 10);
 
-    console.log(`Processing failed payment intent: ${paymentIntentId} for user: ${userId}`);
-
     try {
         // Update the order status to 'failed' if it exists
         const [updateResult] = await pool.query(
@@ -226,8 +205,6 @@ const handlePaymentIntentFailed = async (paymentIntent) => {
 
         if (updateResult.affectedRows === 0) {
             console.warn(`No order found for payment intent ID ${paymentIntentId}`);
-        } else {
-            console.log(`Order status updated to 'failed' for payment intent ID: ${paymentIntentId}`);
         }
 
         // Optionally, log the error or notify the user
@@ -240,4 +217,5 @@ const handlePaymentIntentFailed = async (paymentIntent) => {
 module.exports = {
     createPaymentIntent,
     handleWebhook,
+
 };
