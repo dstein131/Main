@@ -117,7 +117,7 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
             // Create an order
             const [orderResult] = await connection.query(
                 'INSERT INTO orders (user_id, stripe_payment_intent, order_status, total_amount, currency) VALUES (?, ?, ?, ?, ?)',
-                [userId, paymentIntentId, 'paid', amount / 100, currency]
+                [userId, paymentIntentId, 'completed', amount / 100, currency]
             );
             const orderId = orderResult.insertId;
 
