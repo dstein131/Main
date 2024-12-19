@@ -111,82 +111,86 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
     try {
         const connection = await pool.getConnection();
         try {
+            // Start a transaction
             await connection.beginTransaction();
 
-            // Log order creation attempt
             console.log('Creating order...');
             const [orderResult] = await connection.query(
-                'INSERT INTO orders (user_id, stripe_payment_intent, order_status, total_amount, currency) VALUES (?, ?, ?, ?, ?)',
-                [userId, paymentIntentId, 'paid', amount / 100, currency]
+                `INSERT INTO orders 
+                    (user_id, stripe_payment_intent, order_status, total_amount, currency) 
+                 VALUES (?, ?, ?, ?, ?)`,
+                [userId, paymentIntentId, 'completed', amount / 100, currency]
             );
             const orderId = orderResult.insertId;
             console.log('Order created with ID:', orderId);
 
-            // Fetch cart ID
+            // Fetch user's cart
             const [carts] = await connection.query('SELECT cart_id FROM carts WHERE user_id = ?', [userId]);
             if (carts.length === 0) {
                 throw new Error(`No cart found for user ID: ${userId}`);
             }
             const cartId = carts[0].cart_id;
 
-            // Fetch and insert cart items
-            console.log(`Fetching cart items for cart ID: ${cartId}`);
+            // Fetch cart items
             const [cartItems] = await connection.query(
-                `SELECT ci.cart_item_id, ci.service_id, ci.quantity, ci.price
-                 FROM cart_items ci
+                `SELECT ci.cart_item_id, ci.service_id, ci.quantity, ci.price 
+                 FROM cart_items ci 
                  WHERE ci.cart_id = ?`,
                 [cartId]
             );
 
             if (cartItems.length === 0) {
-                throw new Error('No cart items found for the user.');
+                throw new Error('No items found in the user’s cart.');
             }
 
+            // Insert items into `order_items` and handle addons
             for (const item of cartItems) {
                 const { service_id, quantity, price, cart_item_id } = item;
                 const totalPrice = parseFloat(price) * parseInt(quantity, 10);
 
-                // Insert order item
-                console.log(`Inserting order item for service ID: ${service_id}`);
                 await connection.query(
-                    'INSERT INTO order_items (order_id, service_id, quantity, price, total_price) VALUES (?, ?, ?, ?, ?)',
+                    `INSERT INTO order_items 
+                        (order_id, service_id, quantity, price, total_price) 
+                     VALUES (?, ?, ?, ?, ?)`,
                     [orderId, service_id, quantity, price, totalPrice]
                 );
 
-                // Insert addons
-                console.log(`Fetching addons for cart item ID: ${cart_item_id}`);
+                // Fetch and insert addons for each item
                 const [addons] = await connection.query(
-                    `SELECT addon_id, price FROM cart_item_addons WHERE cart_item_id = ?`,
+                    `SELECT addon_id, price 
+                     FROM cart_item_addons 
+                     WHERE cart_item_id = ?`,
                     [cart_item_id]
                 );
 
                 for (const addon of addons) {
-                    const { addon_id, price: addonPrice } = addon;
-                    console.log(`Inserting addon for order ID: ${orderId}, addon ID: ${addon_id}`);
                     await connection.query(
-                        'INSERT INTO order_addons (order_id, addon_id, price) VALUES (?, ?, ?)',
-                        [orderId, addon_id, addonPrice]
+                        `INSERT INTO order_addons 
+                            (order_id, addon_id, price) 
+                         VALUES (?, ?, ?)`,
+                        [orderId, addon.addon_id, addon.price]
                     );
                 }
             }
 
             // Insert payment record
-            console.log('Inserting payment record...');
             await connection.query(
-                'INSERT INTO payments (order_id, payment_method, payment_status, amount, payment_date) VALUES (?, ?, ?, ?, ?)',
+                `INSERT INTO payments 
+                    (order_id, payment_method, payment_status, amount, payment_date) 
+                 VALUES (?, ?, ?, ?, ?)`,
                 [orderId, 'credit_card', 'completed', amount / 100, new Date()]
             );
 
-            // Commit transaction
+            // Commit the transaction
             await connection.commit();
-            console.log(`Transaction committed for order ID: ${orderId}`);
+            console.log(`Order ${orderId} committed successfully.`);
 
             // Clear user's cart
             await clearUserCart(userId);
             console.log(`Cart cleared for user ID: ${userId}`);
         } catch (err) {
             await connection.rollback();
-            console.error('Error during payment processing, rolling back transaction:', err);
+            console.error('Transaction rolled back due to error:', err);
         } finally {
             connection.release();
         }
@@ -194,6 +198,7 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
         console.error('Database connection error:', err);
     }
 };
+
 
 
 
