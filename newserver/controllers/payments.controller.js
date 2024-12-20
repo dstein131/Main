@@ -1,5 +1,3 @@
-// controllers/payments.controller.js
-
 const stripe = require('../config/stripe');
 const pool = require('../pool/pool'); // Main DB pool
 const { clearUserCart } = require('../services/cartService'); // Import the cart service
@@ -100,12 +98,10 @@ const handleWebhook = async (req, res) => {
 
         case 'charge.succeeded':
             console.log('Charge succeeded:', event.data.object);
-            // Optionally, log or handle additional charge details
             break;
 
         case 'charge.updated':
             console.log('Charge updated:', event.data.object);
-            // Optionally, handle updates to charge information
             break;
 
         default:
@@ -114,12 +110,6 @@ const handleWebhook = async (req, res) => {
 
     res.status(200).json({ received: true });
 };
-
-
-
-
-
-
 
 /**
  * Helper function to handle successful payments
@@ -251,19 +241,14 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
     }
 };
 
-
-
-
 /**
  * Helper function to handle failed payments
- * Updates the order status to 'failed' and logs the error.
  */
 const handlePaymentIntentFailed = async (paymentIntent) => {
     const { id: paymentIntentId, metadata, amount, currency, last_payment_error } = paymentIntent;
     const userId = parseInt(metadata.user_id, 10);
 
     try {
-        // Update the order status to 'failed' if it exists
         const [updateResult] = await pool.query(
             'UPDATE orders SET order_status = ?, updated_at = NOW() WHERE stripe_payment_intent = ?',
             ['failed', paymentIntentId]
@@ -273,7 +258,6 @@ const handlePaymentIntentFailed = async (paymentIntent) => {
             console.warn(`No order found for payment intent ID ${paymentIntentId}`);
         }
 
-        // Optionally, log the error or notify the user
         console.error(`Payment failed for user ID ${userId}:`, last_payment_error);
     } catch (err) {
         console.error('Error updating order status for failed payment:', err);
@@ -283,5 +267,4 @@ const handlePaymentIntentFailed = async (paymentIntent) => {
 module.exports = {
     createPaymentIntent,
     handleWebhook,
-
 };
