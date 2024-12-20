@@ -124,7 +124,7 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
             `INSERT INTO orders 
                 (user_id, stripe_payment_intent, order_status, total_amount, currency) 
              VALUES (?, ?, ?, ?, ?)`,
-            [userId, paymentIntentId, 'completed', amount / 100, currency]
+            [userId, paymentIntentId, 'pending', amount / 100, currency]
         );
         const orderId = orderResult.insertId;
         console.log('Order created with ID:', orderId);
