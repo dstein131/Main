@@ -9,6 +9,7 @@ const dotenv = require('dotenv');
 const socketIo = require('socket.io');
 const path = require('path'); // Import path module
 const fs = require('fs'); // Import file system module
+const util = require('util'); // Import util for formatting
 
 const userRoutes = require('./routes/user.routes'); // Import user routes
 const { authenticateJWT } = require('./middleware/auth.middleware'); // Import JWT auth middleware
@@ -19,8 +20,6 @@ const servicesRoutes = require('./routes/services.routes'); // Import services r
 const cartsRoutes = require('./routes/carts.routes'); // Import carts routes
 const paymentsRoutes = require('./routes/payments.routes'); // Import payments routes
 const ordersRoutes = require('./routes/orders.routes');
-
-const upload = require('./middleware/upload'); // Import Multer middleware
 
 // Load environment variables
 dotenv.config();
@@ -62,26 +61,49 @@ const accessLogStream = fs.createWriteStream(path.join(logsDir, 'access.log'), {
 app.use(morgan('combined', { stream: accessLogStream })); // Log requests to a file
 app.use(morgan('dev')); // Log requests to the console
 
-// Custom console logging for server logs
+// Custom console logging for server logs using util.format for better formatting
 const logFile = fs.createWriteStream(path.join(logsDir, 'server.log'), { flags: 'a' });
 const log = (...args) => {
-    const message = `[INFO] ${new Date().toISOString()} ${args.join(' ')}\n`;
-    process.stdout.write(message);
-    logFile.write(message);
+    const formattedMessage = `[INFO] ${new Date().toISOString()} ${util.format(...args)}\n`;
+    process.stdout.write(formattedMessage);
+    logFile.write(formattedMessage);
 };
-const error = (...args) => {
-    const message = `[ERROR] ${new Date().toISOString()} ${args.join(' ')}\n`;
-    process.stderr.write(message);
-    logFile.write(message);
+const errorLog = (...args) => {
+    const formattedMessage = `[ERROR] ${new Date().toISOString()} ${util.format(...args)}\n`;
+    process.stderr.write(formattedMessage);
+    logFile.write(formattedMessage);
 };
 console.log = log;
-console.error = error;
+console.error = errorLog;
 
-// Ensure uploads directory exists (handled in upload.js, so can be removed here if redundant)
-// const uploadsDir = path.join(__dirname, 'uploads');
-// if (!fs.existsSync(uploadsDir)) {
-//     fs.mkdirSync(uploadsDir, { recursive: true });
-// }
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// File upload setup (Not used globally; handled in individual routes)
+const multer = require('multer');
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadsDir); // Directory for file uploads
+    },
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}-${file.originalname}`);
+    }
+});
+const upload = multer({
+    storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'application/msword'];
+        if (allowedTypes.includes(file.mimetype)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Unsupported file type'), false);
+        }
+    }
+});
 
 // Use routes
 app.use('/api/users', userRoutes);
