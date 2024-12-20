@@ -1,7 +1,12 @@
+// src/routes/email.routes.js
+
 const express = require('express');
 const sgMail = require('@sendgrid/mail');
 const dotenv = require('dotenv');
 const path = require('path');
+const fs = require('fs');
+const upload = require('../middleware/upload'); // Import the Multer middleware
+
 dotenv.config();
 
 // Initialize router
@@ -11,10 +16,12 @@ const router = express.Router();
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Email route with file attachment handling
-router.post('/send', async (req, res) => {
-  console.log('Incoming request:', req.body);
+router.post('/send', upload.single('file'), async (req, res) => {
+  console.log('Incoming request body:', req.body);
+  console.log('Incoming file:', req.file);
 
-  const { name, email, message, filePath } = req.body;
+  const { name, email, service, message } = req.body; // Destructure 'service' instead of 'filePath'
+  const file = req.file; // Access the uploaded file
 
   // Validate required fields
   if (!name || !email || !message) {
@@ -32,22 +39,23 @@ router.post('/send', async (req, res) => {
       name: name, // Sender's name
     },
     subject: `Contact Form Submission from ${name}`,
-    text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
+    text: `Name: ${name}\nEmail: ${email}\nService: ${service}\nMessage: ${message}`,
     html: `<p><strong>Name:</strong> ${name}</p>
            <p><strong>Email:</strong> ${email}</p>
+           <p><strong>Service:</strong> ${service}</p>
            <p><strong>Message:</strong> ${message}</p>`,
   };
 
   try {
-    // If there is a filePath (uploaded file), attach it
-    if (filePath) {
-      const fileBuffer = fs.readFileSync(path.join(__dirname, '..', 'uploads', filePath));
-      const fileName = path.basename(filePath);
+    // If there's an uploaded file, attach it
+    if (file) {
+      const fileBuffer = fs.readFileSync(file.path);
+      const fileName = path.basename(file.originalname);
       mailOptions.attachments = [
         {
           content: fileBuffer.toString('base64'), // File content in Base64 format
           filename: fileName,
-          type: 'application/octet-stream', // General binary stream MIME type
+          type: file.mimetype,
           disposition: 'attachment',
         },
       ];
@@ -63,6 +71,14 @@ router.post('/send', async (req, res) => {
       console.error('SendGrid Response:', error.response.body);
     }
     res.status(500).json({ success: false, message: 'Failed to send message.', error: error.message });
+  } finally {
+    // Delete the file from the server after sending the email
+    if (file) {
+      fs.unlink(file.path, (err) => {
+        if (err) console.error('Error deleting uploaded file:', err);
+        else console.log('Uploaded file deleted successfully.');
+      });
+    }
   }
 });
 

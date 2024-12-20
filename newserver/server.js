@@ -1,10 +1,11 @@
+// server.js
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const dotenv = require('dotenv');
-const multer = require('multer');
 const socketIo = require('socket.io');
 const path = require('path'); // Import path module
 const fs = require('fs'); // Import file system module
@@ -18,6 +19,8 @@ const servicesRoutes = require('./routes/services.routes'); // Import services r
 const cartsRoutes = require('./routes/carts.routes'); // Import carts routes
 const paymentsRoutes = require('./routes/payments.routes'); // Import payments routes
 const ordersRoutes = require('./routes/orders.routes');
+
+const upload = require('./middleware/upload'); // Import Multer middleware
 
 // Load environment variables
 dotenv.config();
@@ -74,33 +77,11 @@ const error = (...args) => {
 console.log = log;
 console.error = error;
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// File upload setup
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadsDir); // Directory for file uploads
-    },
-    filename: (req, file, cb) => {
-        cb(null, `${Date.now()}-${file.originalname}`);
-    }
-});
-const upload = multer({
-    storage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-    fileFilter: (req, file, cb) => {
-        const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'application/msword'];
-        if (allowedTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Unsupported file type'), false);
-        }
-    }
-});
+// Ensure uploads directory exists (handled in upload.js, so can be removed here if redundant)
+// const uploadsDir = path.join(__dirname, 'uploads');
+// if (!fs.existsSync(uploadsDir)) {
+//     fs.mkdirSync(uploadsDir, { recursive: true });
+// }
 
 // Use routes
 app.use('/api/users', userRoutes);
