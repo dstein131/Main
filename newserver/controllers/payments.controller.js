@@ -208,21 +208,23 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
         await clearUserCart(userId);
         console.log(`Cart cleared for user ID: ${userId}`);
 
-        // Fetch user email for confirmation
+        // Fetch user email and username from the `user_management` database
         const [userRows] = await pool.query(
-            'SELECT email, username FROM users WHERE user_id = ?',
+            `SELECT email, username 
+             FROM user_management.users 
+             WHERE user_id = ?`,
             [userId]
         );
 
         if (userRows.length === 0) {
-            throw new Error(`User not found for ID: ${userId}`);
+            throw new Error(`User not found for ID: ${userId} in user_management database`);
         }
         const { email, username } = userRows[0];
 
         // Send confirmation email
         const emailContent = {
             to: email,
-            from: process.env.SENDGRID_FROM_EMAIL, 
+            from: process.env.SENDGRID_FROM_EMAIL,
             subject: 'Order Confirmation',
             text: `Thank you for your purchase, ${username}! Your order #${orderId} has been placed successfully. 
             Total Amount: $${(amount / 100).toFixed(2)} ${currency.toUpperCase()}.
@@ -240,7 +242,6 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
                 <p>The Murray Hill Web Development Team</p>
             `,
         };
-        
 
         await sgMail.send(emailContent);
         console.log(`Confirmation email sent to ${email}`);
@@ -249,6 +250,7 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
         console.error('Transaction rolled back due to error:', err);
     }
 };
+
 
 
 
