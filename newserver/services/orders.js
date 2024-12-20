@@ -1,15 +1,33 @@
-// services/orders.js
-
 const pool = require('../pool/pool'); // Main DB pool
 
 /**
  * Fetch all orders for a specific user.
  * @param {number} userId - The ID of the user.
- * @returns {Promise<Array>} - An array of orders with their items and addons.
+ * @returns {Promise<Array>} - An array of orders with their items, addons, and user info.
  */
 const getUserOrders = async (userId) => {
     const connection = await pool.getConnection();
     try {
+        // Fetch user info
+        const [userInfoResult] = await connection.query(
+            `SELECT 
+                u.user_id,
+                u.username,
+                u.email,
+                u.first_name,
+                u.last_name,
+                u.created_at AS user_created_at
+             FROM user_management.users u
+             WHERE u.user_id = ?`,
+            [userId]
+        );
+
+        if (userInfoResult.length === 0) {
+            throw new Error('User not found');
+        }
+
+        const userInfo = userInfoResult[0];
+
         // Fetch orders for the user
         const [orders] = await connection.query(
             `SELECT 
@@ -62,10 +80,6 @@ const getUserOrders = async (userId) => {
                     [order.order_id]
                 );
 
-                // Map addons to order items (if applicable)
-                // Since order_addons are linked to orders, not specific order_items,
-                // you might need to adjust this logic based on your data model.
-
                 return {
                     ...order,
                     items: orderItems.map(item => ({
@@ -80,7 +94,11 @@ const getUserOrders = async (userId) => {
             })
         );
 
-        return ordersWithDetails;
+        // Attach user info to the result
+        return {
+            user: userInfo,
+            orders: ordersWithDetails,
+        };
     } catch (error) {
         console.error('Error fetching user orders:', error);
         throw error;
@@ -93,11 +111,31 @@ const getUserOrders = async (userId) => {
  * Fetch a specific order by ID for a user.
  * @param {number} userId - The ID of the user.
  * @param {number} orderId - The ID of the order.
- * @returns {Promise<Object|null>} - The order details or null if not found.
+ * @returns {Promise<Object|null>} - The order details with user info or null if not found.
  */
 const getOrderById = async (userId, orderId) => {
     const connection = await pool.getConnection();
     try {
+        // Fetch user info
+        const [userInfoResult] = await connection.query(
+            `SELECT 
+                u.user_id,
+                u.username,
+                u.email,
+                u.first_name,
+                u.last_name,
+                u.created_at AS user_created_at
+             FROM user_management.users u
+             WHERE u.user_id = ?`,
+            [userId]
+        );
+
+        if (userInfoResult.length === 0) {
+            throw new Error('User not found');
+        }
+
+        const userInfo = userInfoResult[0];
+
         // Fetch the specific order
         const [orders] = await connection.query(
             `SELECT 
@@ -152,19 +190,19 @@ const getOrderById = async (userId, orderId) => {
             [order.order_id]
         );
 
-        // Map addons to order items (if applicable)
-        // Adjust based on your data model.
-
         return {
-            ...order,
-            items: orderItems.map(item => ({
-                ...item,
-                addons: addons.filter(addon => addon.order_id === order.order_id).map(addon => ({
-                    addon_id: addon.addon_id,
-                    name: addon.name,
-                    price: parseFloat(addon.price),
+            user: userInfo,
+            order: {
+                ...order,
+                items: orderItems.map(item => ({
+                    ...item,
+                    addons: addons.filter(addon => addon.order_id === order.order_id).map(addon => ({
+                        addon_id: addon.addon_id,
+                        name: addon.name,
+                        price: parseFloat(addon.price),
+                    })),
                 })),
-            })),
+            },
         };
     } catch (error) {
         console.error('Error fetching order by ID:', error);
