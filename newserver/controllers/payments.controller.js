@@ -106,7 +106,6 @@ const handleWebhook = async (req, res) => {
 
 
 
-
 /**
  * Helper function to handle successful payments
  * Inserts order, order items, order addons, and payment records into the database.
