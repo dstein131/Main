@@ -96,6 +96,11 @@ const handleWebhook = async (req, res) => {
             await handlePaymentIntentFailed(event.data.object);
             break;
 
+        case 'payment_intent.created':
+            console.log('PaymentIntent created:', event.data.object);
+            // Log or handle if necessary
+            break;
+
         case 'charge.succeeded':
             console.log('Charge succeeded:', event.data.object);
             break;
@@ -110,6 +115,7 @@ const handleWebhook = async (req, res) => {
 
     res.status(200).json({ received: true });
 };
+
 
 /**
  * Helper function to handle successful payments
