@@ -80,7 +80,6 @@ const handleWebhook = async (req, res) => {
 
     try {
         // Verify raw body
-        console.log('Raw request body:', req.body.toString()); // Debug log
         event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
     } catch (err) {
         console.error('Webhook signature verification failed:', err.message);
@@ -99,12 +98,23 @@ const handleWebhook = async (req, res) => {
             await handlePaymentIntentFailed(event.data.object);
             break;
 
+        case 'charge.succeeded':
+            console.log('Charge succeeded:', event.data.object);
+            // Optionally, log or handle additional charge details
+            break;
+
+        case 'charge.updated':
+            console.log('Charge updated:', event.data.object);
+            // Optionally, handle updates to charge information
+            break;
+
         default:
             console.warn(`Unhandled event type: ${event.type}`);
     }
 
     res.status(200).json({ received: true });
 };
+
 
 
 
