@@ -3,6 +3,10 @@
 const stripe = require('../config/stripe');
 const pool = require('../pool/pool'); // Main DB pool
 const { clearUserCart } = require('../services/cartService'); // Import the cart service
+const sgMail = require('@sendgrid/mail');
+
+// Set SendGrid API key
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 /**
  * Create a Payment Intent
@@ -193,12 +197,48 @@ const handlePaymentIntentSucceeded = async (paymentIntent) => {
         // Clear user's cart
         await clearUserCart(userId);
         console.log(`Cart cleared for user ID: ${userId}`);
+
+        // Fetch user email for confirmation
+        const [userRows] = await pool.query(
+            'SELECT email, username FROM users WHERE user_id = ?',
+            [userId]
+        );
+
+        if (userRows.length === 0) {
+            throw new Error(`User not found for ID: ${userId}`);
+        }
+        const { email, username } = userRows[0];
+
+        // Send confirmation email
+        const emailContent = {
+            to: email,
+            from: process.env.SENDGRID_FROM_EMAIL, 
+            subject: 'Order Confirmation',
+            text: `Thank you for your purchase, ${username}! Your order #${orderId} has been placed successfully. 
+            Total Amount: $${(amount / 100).toFixed(2)} ${currency.toUpperCase()}.
+            We will be reaching out shortly to gather the requirements for your project. 
+            If you have any questions or concerns, feel free to contact us at david@murrayhillwebdevelopment.com or call us at 1-904-383-9688.`,
+            html: `
+                <p>Dear ${username},</p>
+                <p>Thank you for your purchase! Your order <strong>#${orderId}</strong> has been placed successfully.</p>
+                <p><strong>Total Amount:</strong> $${(amount / 100).toFixed(2)} ${currency.toUpperCase()}</p>
+                <p>We will be reaching out shortly to gather the requirements for your project.</p>
+                <p>If you have any questions or concerns, please feel free to contact us directly at 
+                <a href="mailto:david@murrayhillwebdevelopment.com">david@murrayhillwebdevelopment.com</a> 
+                or call us at <a href="tel:+19043839688">1-904-383-9688</a>.</p>
+                <p>Best regards,</p>
+                <p>The Murray Hill Web Development Team</p>
+            `,
+        };
+        
+
+        await sgMail.send(emailContent);
+        console.log(`Confirmation email sent to ${email}`);
     } catch (err) {
         await pool.query('ROLLBACK');
         console.error('Transaction rolled back due to error:', err);
     }
 };
-
 
 
 

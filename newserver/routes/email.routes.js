@@ -1,44 +1,20 @@
 const express = require('express');
-const multer = require('multer');
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 const dotenv = require('dotenv');
+const path = require('path');
 dotenv.config();
 
 // Initialize router
 const router = express.Router();
 
-// Configure Multer for file uploads with size limits
-const storage = multer.memoryStorage();
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf', 'application/msword'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Unsupported file type. Allowed types are .jpeg, .png, .pdf, .docx'), false);
-    }
-  },
-});
-
-// Configure Nodemailer transporter for Gmail
-const transporter = nodemailer.createTransport({
-  service: 'gmail', // Use Gmail service
-  auth: {
-    user: process.env.EMAIL_USER, 
-    pass: process.env.EMAIL_PASS, 
-  },
-  logger: true, // Enable Nodemailer logging
-  debug: true,  // Show debugging output
-});
+// Configure SendGrid
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // Email route with file attachment handling
-router.post('/send', upload.single('file'), async (req, res) => {
-  console.log('Incoming request:', req.body, req.file);
+router.post('/send', async (req, res) => {
+  console.log('Incoming request:', req.body);
 
-  const { name, email, message } = req.body;
-  const file = req.file;
+  const { name, email, message, filePath } = req.body;
 
   // Validate required fields
   if (!name || !email || !message) {
@@ -50,46 +26,43 @@ router.post('/send', upload.single('file'), async (req, res) => {
 
   // Build email options
   const mailOptions = {
-    from: `"${name}" <${process.env.EMAIL_USER}>`, 
-    to: process.env.RECIPIENT_EMAIL, 
+    to: process.env.RECIPIENT_EMAIL, // Recipient email address
+    from: {
+      email: process.env.SENDGRID_FROM_EMAIL, // Sender email configured in environment variables
+      name: name, // Sender's name
+    },
     subject: `Contact Form Submission from ${name}`,
     text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`,
     html: `<p><strong>Name:</strong> ${name}</p>
            <p><strong>Email:</strong> ${email}</p>
            <p><strong>Message:</strong> ${message}</p>`,
-    attachments: file
-      ? [
-          {
-            filename: file.originalname,
-            content: file.buffer,
-          },
-        ]
-      : [],
   };
 
   try {
+    // If there is a filePath (uploaded file), attach it
+    if (filePath) {
+      const fileBuffer = fs.readFileSync(path.join(__dirname, '..', 'uploads', filePath));
+      const fileName = path.basename(filePath);
+      mailOptions.attachments = [
+        {
+          content: fileBuffer.toString('base64'), // File content in Base64 format
+          filename: fileName,
+          type: 'application/octet-stream', // General binary stream MIME type
+          disposition: 'attachment',
+        },
+      ];
+    }
+
     console.log('Attempting to send email with options:', mailOptions);
-    const info = await transporter.sendMail(mailOptions);
-    console.log('Email sent successfully:', info);
+    await sgMail.send(mailOptions);
+    console.log('Email sent successfully');
     res.status(200).json({ success: true, message: 'Message sent successfully!' });
   } catch (error) {
     console.error('Error sending email:', error);
     if (error.response) {
-      console.error('SMTP Response:', error.response);
+      console.error('SendGrid Response:', error.response.body);
     }
     res.status(500).json({ success: false, message: 'Failed to send message.', error: error.message });
-  }
-});
-
-// Error handling for file upload issues
-router.use((err, req, res, next) => {
-  console.error('Middleware error handler caught an error:', err);
-  if (err instanceof multer.MulterError) {
-    res.status(400).json({ success: false, message: err.message });
-  } else if (err.message === 'Unsupported file type. Allowed types are .jpeg, .png, .pdf, .docx') {
-    res.status(400).json({ success: false, message: err.message });
-  } else {
-    next(err);
   }
 });
 
