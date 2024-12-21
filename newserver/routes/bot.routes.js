@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const botController = require('../controllers/bot.controller');
+const botController = require('../controllers/bot.controller'); // Import bot controller
 const { authenticateJWT } = require('../middleware/auth.middleware'); // Import JWT middleware
 
 // ---------------------
