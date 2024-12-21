@@ -114,7 +114,6 @@ app.use('/api/services', servicesRoutes);
 app.use('/api/carts', cartsRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/orders', ordersRoutes);
-app.use('/api/bot', botRoutes); // Add bot routes
 app.use('/api/messages', directMessageRoutes);
 
 // Socket.io setup (for real-time functionalities)
