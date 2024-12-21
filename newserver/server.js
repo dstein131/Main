@@ -1,5 +1,3 @@
-// server.js
-
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -19,7 +17,8 @@ const chatgptRoutes = require('./routes/chatgpt.routes'); // Import ChatGPT rout
 const servicesRoutes = require('./routes/services.routes'); // Import services routes
 const cartsRoutes = require('./routes/carts.routes'); // Import carts routes
 const paymentsRoutes = require('./routes/payments.routes'); // Import payments routes
-const ordersRoutes = require('./routes/orders.routes');
+const ordersRoutes = require('./routes/orders.routes'); // Import orders routes
+const botRoutes = require('./routes/bot.routes'); // Import bot routes
 
 // Load environment variables
 dotenv.config();
@@ -114,6 +113,7 @@ app.use('/api/services', servicesRoutes);
 app.use('/api/carts', cartsRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/orders', ordersRoutes);
+app.use('/api/bot', botRoutes); // Add bot routes
 
 // Socket.io setup (for real-time functionalities)
 const http = require('http');
