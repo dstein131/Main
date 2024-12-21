@@ -18,7 +18,6 @@ const servicesRoutes = require('./routes/services.routes'); // Import services r
 const cartsRoutes = require('./routes/carts.routes'); // Import carts routes
 const paymentsRoutes = require('./routes/payments.routes'); // Import payments routes
 const ordersRoutes = require('./routes/orders.routes'); // Import orders routes
-const botRoutes = require('./routes/bot.routes'); // Import bot routes
 const directMessageRoutes = require('./routes/directMessage.routes'); // Import direct message routes
 
 // Load environment variables
