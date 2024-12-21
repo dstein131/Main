@@ -1,5 +1,3 @@
-// services/messageService.js
-
 const twilio = require('twilio');
 const pool = require('../pool/pool'); // Database pool
 
@@ -11,7 +9,7 @@ const client = twilio(accountSid, authToken);
 
 /**
  * Send a direct message via Twilio WhatsApp
- * @param {string} phoneNumber - The recipient's phone number (for unauthenticated users)
+ * @param {string} phoneNumber - The recipient's phone number
  * @param {string} message - The message content
  * @returns {Promise<string>} - Confirmation message
  */

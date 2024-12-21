@@ -2,10 +2,10 @@ const messageService = require('../services/messageService');
 const pool = require('../pool/pool');
 
 /**
- * Handle sending a message (direct to you via WhatsApp)
+ * Handle sending a direct message via WhatsApp
  */
 exports.sendMessage = async (req, res) => {
-    const { phoneNumber, message } = req.body; // For unauthenticated users
+    const { phoneNumber, message } = req.body;
 
     if (!phoneNumber || !message) {
         return res.status(400).json({ message: 'Phone number and message content are required.' });
@@ -26,7 +26,7 @@ exports.sendMessage = async (req, res) => {
 };
 
 /**
- * Get message history (authenticated users only)
+ * Retrieve message history (authenticated users only)
  */
 exports.getMessageHistory = async (req, res) => {
     try {
