@@ -19,6 +19,7 @@ const cartsRoutes = require('./routes/carts.routes'); // Import carts routes
 const paymentsRoutes = require('./routes/payments.routes'); // Import payments routes
 const ordersRoutes = require('./routes/orders.routes'); // Import orders routes
 const botRoutes = require('./routes/bot.routes'); // Import bot routes
+const directMessageRoutes = require('./routes/directMessage.routes'); // Import direct message routes
 
 // Load environment variables
 dotenv.config();
@@ -114,6 +115,7 @@ app.use('/api/carts', cartsRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/bot', botRoutes); // Add bot routes
+app.use('/api/messages', directMessageRoutes);
 
 // Socket.io setup (for real-time functionalities)
 const http = require('http');
