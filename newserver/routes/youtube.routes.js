@@ -1,6 +1,9 @@
+// backend/routes/youtube.routes.js
+
 const express = require('express');
 const router = express.Router();
-const { downloadVideo } = require('../services/youtube.services');
+const { downloadVideo } = require('../services/youtube.service');
+const ApiError = require('../utils/ApiError');
 
 router.post('/download', async (req, res) => {
     const { url } = req.body;
@@ -11,10 +14,14 @@ router.post('/download', async (req, res) => {
         console.log('Video data retrieved successfully:', videoData);
         res.status(200).json(videoData);
     } catch (error) {
-        console.error('Error downloading video:', error.message);
-        res.status(400).json({ error: error.message });
+        if (error instanceof ApiError) {
+            console.error(`Error downloading video: ${error.message}`);
+            res.status(error.statusCode).json({ error: error.message });
+        } else {
+            console.error(`Unexpected error: ${error.message}`);
+            res.status(500).json({ error: 'Internal Server Error' });
+        }
     }
 });
-
 
 module.exports = router;

@@ -8,6 +8,7 @@ const socketIo = require('socket.io');
 const path = require('path'); // Import path module
 const fs = require('fs'); // Import file system module
 const util = require('util'); // Import util for formatting
+const rateLimit = require('express-rate-limit'); // Import rate limiting middleware
 
 const userRoutes = require('./routes/user.routes'); // Import user routes
 const { authenticateJWT } = require('./middleware/auth.middleware'); // Import JWT auth middleware
@@ -27,12 +28,22 @@ dotenv.config();
 // Initialize Express app
 const app = express();
 
+// Apply rate limiting to all requests
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: 'Too many requests from this IP, please try again after 15 minutes.'
+});
+
 // Set EJS as the templating engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views')); // Define the views directory
 
 // Middleware
 app.use(helmet());
+
+// limit requests to the API
+app.use(limiter);
 
 // Configure CORS
 app.use(cors({
