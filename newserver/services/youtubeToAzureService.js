@@ -3,14 +3,14 @@
 const { google } = require('googleapis');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const dotenv = require('dotenv');
-const fs = require('fs').promises; // Use promise-based fs
+const fs = require('fs').promises; // Use promise-based fs for non-blocking operations
 const path = require('path');
 const ytdl = require('ytdl-core');
 const cron = require('node-cron');
 const pLimit = require('p-limit'); // For concurrency control
 const winston = require('winston'); // Logging library
 
-// Load environment variables
+// Load environment variables from .env file
 dotenv.config();
 
 // Validate essential environment variables
@@ -30,7 +30,7 @@ if (missingEnvVars.length > 0) {
     process.exit(1);
 }
 
-// Initialize YouTube API
+// Initialize YouTube API client
 const youtube = google.youtube({
     version: 'v3',
     auth: process.env.YOUTUBE_API_KEY,
@@ -66,6 +66,7 @@ const logger = winston.createLogger({
 (async () => {
     try {
         await fs.mkdir(logsDir, { recursive: true });
+        logger.info('Logs directory ensured.');
     } catch (error) {
         console.error(`Failed to create logs directory: ${error.message}`);
         process.exit(1);
@@ -99,6 +100,7 @@ const processedVideosDir = path.join(__dirname, 'processedVideos');
 async function ensureProcessedVideosDir() {
     try {
         await fs.mkdir(processedVideosDir, { recursive: true });
+        logger.info('Processed videos directory ensured.');
     } catch (error) {
         logger.error(`Failed to create processedVideos directory: ${error.message}`);
         throw error;
@@ -110,11 +112,13 @@ async function loadProcessedVideos(channelId) {
     const filePath = path.join(processedVideosDir, `${channelId}.json`);
     try {
         const data = await fs.readFile(filePath, 'utf-8');
+        logger.info(`Loaded processed videos for channel ${channelId}.`);
         return JSON.parse(data);
     } catch (error) {
         if (error.code === 'ENOENT') {
             // File doesn't exist, initialize it
             await saveProcessedVideos(channelId, {});
+            logger.info(`Initialized processed videos for new channel ${channelId}.`);
             return {};
         } else {
             logger.error(`Failed to load processed videos for channel ${channelId}: ${error.message}`);
@@ -128,6 +132,7 @@ async function saveProcessedVideos(channelId, processedVideos) {
     const filePath = path.join(processedVideosDir, `${channelId}.json`);
     try {
         await fs.writeFile(filePath, JSON.stringify(processedVideos, null, 2), 'utf-8');
+        logger.info(`Saved processed videos for channel ${channelId}.`);
     } catch (error) {
         logger.error(`Failed to save processed videos for channel ${channelId}: ${error.message}`);
         throw error;
@@ -145,10 +150,36 @@ async function fetchLatestVideos(channelId) {
             type: 'video',
         });
 
+        logger.info(`Fetched ${response.data.items.length} videos for channel ${channelId}.`);
         return response.data.items;
     } catch (error) {
         logger.error(`Error fetching videos for channel ${channelId}: ${error.message}`);
         return [];
+    }
+}
+
+// Check if video is a live stream that has started
+async function isVideoLive(videoId) {
+    try {
+        const response = await youtube.videos.list({
+            part: 'snippet,liveStreamingDetails',
+            id: videoId,
+        });
+
+        if (response.data.items.length === 0) {
+            logger.warn(`Video ${videoId} not found.`);
+            return false;
+        }
+
+        const video = response.data.items[0];
+        if (video.liveStreamingDetails && video.liveStreamingDetails.actualStartTime) {
+            return true; // Live stream has started
+        }
+
+        return false; // Not a live stream or hasn't started
+    } catch (error) {
+        logger.error(`Error checking live status for video ${videoId}: ${error.message}`);
+        return false;
     }
 }
 
@@ -214,6 +245,12 @@ async function processChannel(channelId) {
             const blobName = `${channelId}/${videoId}.mp4`; // Organize blobs by channel ID
 
             try {
+                const live = await isVideoLive(videoId);
+                if (live) {
+                    logger.warn(`Video ${videoId} is a live stream that has started. Skipping download.`);
+                    continue; // Skip live streams that have started
+                }
+
                 await downloadVideo(videoId, filePath);
                 await uploadToAzure(process.env.AZURE_CONTAINER_NAME, filePath, blobName);
                 await fs.unlink(filePath); // Remove local file after upload
