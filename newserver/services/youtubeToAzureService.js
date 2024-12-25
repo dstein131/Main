@@ -168,18 +168,19 @@ async function saveProcessedVideos(channelId, processedVideos) {
     }
 }
 
-// Fetch latest videos from a channel
-async function fetchLatestVideos(channelId) {
+// Fetch latest videos from a channel since a specific date
+async function fetchLatestVideos(channelId, publishedAfter) {
     try {
         const response = await youtube.search.list({
             part: 'id,snippet',
             channelId: channelId,
             order: 'date',
-            maxResults: 5, // Adjust as needed
+            maxResults: 50, // Maximum allowed by YouTube API
             type: 'video',
+            publishedAfter: publishedAfter,
         });
 
-        logger.info(`Fetched ${response.data.items.length} videos for channel ${channelId}.`);
+        logger.info(`Fetched ${response.data.items.length} videos for channel ${channelId} since ${publishedAfter}.`);
         return response.data.items;
     } catch (error) {
         logger.error(`Error fetching videos for channel ${channelId}: ${error.message}`);
@@ -231,8 +232,18 @@ async function downloadVideo(videoId, filePath) {
             });
 
         videoStream.on('error', (err) => {
-            logger.error(`Error streaming video ${videoId}: ${err.message}`);
-            reject(err);
+            if (err.message.includes('This live event will begin')) {
+                logger.warn(`Live event for video ${videoId} has not started yet. Skipping download.`);
+                // Clean up the write stream if it was created
+                writeStream.close();
+                fsp.unlink(filePath).catch(unlinkErr => {
+                    logger.error(`Error deleting incomplete file ${filePath}: ${unlinkErr.message}`);
+                });
+                resolve(); // Resolve to continue processing other videos
+            } else {
+                logger.error(`Error streaming video ${videoId}: ${err.message}`);
+                reject(err);
+            }
         });
     });
 }
@@ -263,7 +274,26 @@ async function uploadToAzure(containerName, filePath, blobName) {
 async function processChannel(channelId) {
     logger.info(`Processing channel: ${channelId}`);
     const processedVideos = await loadProcessedVideos(channelId);
-    const videos = await fetchLatestVideos(channelId);
+
+    // Determine the publishedAfter date
+    let publishedAfter;
+    if (Object.keys(processedVideos).length === 0) {
+        // No processed videos, set to 5 days ago
+        const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000);
+        publishedAfter = fiveDaysAgo.toISOString();
+        logger.info(`No processed videos for channel ${channelId}. Setting publishedAfter to 5 days ago (${publishedAfter}).`);
+    } else {
+        // Set to the latest publishedAt date
+        const latestDate = Object.values(processedVideos)
+            .map(video => new Date(video.publishedAt))
+            .reduce((max, current) => current > max ? current : max, new Date(0));
+        // Add a small buffer (e.g., 1 second) to avoid missing any videos
+        latestDate.setSeconds(latestDate.getSeconds() + 1);
+        publishedAfter = latestDate.toISOString();
+        logger.info(`Latest processed video for channel ${channelId} was published at ${latestDate.toISOString()}. Setting publishedAfter to ${publishedAfter}.`);
+    }
+
+    const videos = await fetchLatestVideos(channelId, publishedAfter);
 
     for (const video of videos) {
         const videoId = video.id.videoId;
@@ -280,17 +310,14 @@ async function processChannel(channelId) {
                     continue; // Skip live streams that have started
                 }
 
-                // Enqueue download operation
                 await enqueueOperation(async () => {
                     await downloadVideo(videoId, filePath);
                 });
 
-                // Enqueue upload operation
                 await enqueueOperation(async () => {
                     await uploadToAzure(process.env.AZURE_CONTAINER_NAME, filePath, blobName);
                 });
 
-                // Enqueue file deletion operation
                 await enqueueOperation(async () => {
                     await fsp.unlink(filePath); // Remove local file after upload
                 });
@@ -323,7 +350,7 @@ async function processAllChannels() {
     // Initialize processedVideos directory
     await ensureProcessedVideosDir();
 
-    // Process channels sequentially to manage concurrency across channels
+    // Process each channel sequentially to manage concurrency across channels
     for (const channelId of channelIds) {
         await processChannel(channelId);
     }
