@@ -1,5 +1,3 @@
-// backend/routes/youtube.routes.js
-
 const express = require('express');
 const router = express.Router();
 const { downloadVideo } = require('../services/youtube.services');
@@ -16,7 +14,10 @@ router.post('/download', async (req, res) => {
     } catch (error) {
         if (error instanceof ApiError) {
             console.error(`Error downloading video: ${error.message}`);
-            res.status(error.statusCode).json({ error: error.message });
+            res.status(error.statusCode).json({ 
+                error: error.message,
+                suggestion: 'Check if the video is still available on YouTube or if there are any restrictions.',
+            });
         } else {
             console.error(`Unexpected error: ${error.message}`);
             res.status(500).json({ error: 'Internal Server Error' });

@@ -1,5 +1,3 @@
-// backend/services/youtube.service.js
-
 const ytdl = require('ytdl-core');
 const ApiError = require('../utils/ApiError');
 
@@ -14,14 +12,17 @@ const downloadVideo = async (url) => {
 
     try {
         const videoInfo = await ytdl.getInfo(url);
-        console.log('Video info retrieved:', videoInfo.videoDetails.title);
+        console.log('Retrieved video info:', videoInfo.videoDetails);
+
+        // Log available formats
+        console.log('Available formats:', videoInfo.formats);
 
         // Choose the best available format
         const format = ytdl.chooseFormat(videoInfo.formats, { quality: 'highestvideo' });
 
         if (!format || !format.url) {
-            console.error('No valid download URL found');
-            throw new ApiError('Video is no longer available', 410);
+            console.error('No valid download URL found in formats:', videoInfo.formats);
+            throw new ApiError('Video is no longer available or cannot be accessed.', 410);
         }
 
         return {
