@@ -73,7 +73,7 @@ const logger = winston.createLogger({
     }
 })();
 
-// Concurrency limit (e.g., 3 concurrent downloads/uploads)
+// Concurrency limit (e.g., 3 concurrent operations)
 const MAX_CONCURRENT_OPERATIONS = 3;
 let activeOperations = 0;
 const operationQueue = [];
@@ -300,34 +300,31 @@ async function processChannel(channelId) {
 
         if (!processedVideos[videoId]) {
             const sanitizedTitle = video.snippet.title.replace(/[<>:"/\\|?*]+/g, ''); // Sanitize title
-            const filePath = path.join(__dirname, `${videoId}.mp4`);
+            const tempDir = path.join(__dirname, '..', 'temp'); // Use a temp directory
+            await fsp.mkdir(tempDir, { recursive: true });
+            const filePath = path.join(tempDir, `${videoId}.mp4`);
             const blobName = `${channelId}/${videoId}.mp4`; // Organize blobs by channel ID
 
             try {
-                const live = await isVideoLive(videoId);
-                if (live) {
-                    logger.warn(`Video ${videoId} is a live stream that has started. Skipping download.`);
-                    continue; // Skip live streams that have started
-                }
-
+                // Enqueue the entire process as one operation
                 await enqueueOperation(async () => {
+                    const live = await isVideoLive(videoId);
+                    if (live) {
+                        logger.warn(`Video ${videoId} is a live stream that has started. Skipping download.`);
+                        return; // Skip live streams that have started
+                    }
+
                     await downloadVideo(videoId, filePath);
-                });
-
-                await enqueueOperation(async () => {
                     await uploadToAzure(process.env.AZURE_CONTAINER_NAME, filePath, blobName);
-                });
-
-                await enqueueOperation(async () => {
                     await fsp.unlink(filePath); // Remove local file after upload
-                });
 
-                // Mark video as processed
-                processedVideos[videoId] = {
-                    title: video.snippet.title,
-                    publishedAt: video.snippet.publishedAt,
-                };
-                await saveProcessedVideos(channelId, processedVideos);
+                    // Mark video as processed
+                    processedVideos[videoId] = {
+                        title: video.snippet.title,
+                        publishedAt: video.snippet.publishedAt,
+                    };
+                    await saveProcessedVideos(channelId, processedVideos);
+                });
             } catch (error) {
                 logger.error(`Failed to process video ${videoId} from channel ${channelId}: ${error.message}`);
             }
