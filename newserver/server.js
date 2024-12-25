@@ -145,8 +145,6 @@ app.use((err, req, res, next) => {
     }
 });
 
-// Initialize YouTube to Azure service
-youtubeToAzureService.init();
 
 // Start the server
 const PORT = process.env.PORT || 8080;
