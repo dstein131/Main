@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { downloadVideo } = require('../services/youtube.service');
+const { downloadVideo } = require('../services/youtube.services');
 
 router.post('/download', async (req, res) => {
     const { url } = req.body;
