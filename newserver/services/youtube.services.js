@@ -28,6 +28,7 @@ const downloadVideo = async (url) => {
                 break;
             }
         }
+        
 
         if (!format || !format.url) {
             console.error('No valid download URL found in any format:', videoInfo.formats);
