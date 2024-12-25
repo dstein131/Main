@@ -7,7 +7,6 @@ const fs = require('fs').promises; // Use promise-based fs for non-blocking oper
 const path = require('path');
 const ytdl = require('ytdl-core');
 const cron = require('node-cron');
-const pLimit = require('p-limit'); // For concurrency control
 const winston = require('winston'); // Logging library
 
 // Load environment variables from .env file
@@ -74,7 +73,36 @@ const logger = winston.createLogger({
 })();
 
 // Concurrency limit (e.g., 3 concurrent downloads/uploads)
-const limit = pLimit(3);
+const MAX_CONCURRENT_OPERATIONS = 3;
+let activeOperations = 0;
+const operationQueue = [];
+
+// Function to handle concurrency
+function enqueueOperation(operation) {
+    return new Promise((resolve, reject) => {
+        const executeOperation = async () => {
+            activeOperations++;
+            try {
+                const result = await operation();
+                resolve(result);
+            } catch (error) {
+                reject(error);
+            } finally {
+                activeOperations--;
+                if (operationQueue.length > 0) {
+                    const nextOperation = operationQueue.shift();
+                    nextOperation();
+                }
+            }
+        };
+
+        if (activeOperations < MAX_CONCURRENT_OPERATIONS) {
+            executeOperation();
+        } else {
+            operationQueue.push(executeOperation);
+        }
+    });
+}
 
 // Function to get an active container client with failover
 async function getActiveContainerClient(containerName) {
@@ -251,9 +279,17 @@ async function processChannel(channelId) {
                     continue; // Skip live streams that have started
                 }
 
-                await downloadVideo(videoId, filePath);
-                await uploadToAzure(process.env.AZURE_CONTAINER_NAME, filePath, blobName);
-                await fs.unlink(filePath); // Remove local file after upload
+                await enqueueOperation(async () => {
+                    await downloadVideo(videoId, filePath);
+                });
+
+                await enqueueOperation(async () => {
+                    await uploadToAzure(process.env.AZURE_CONTAINER_NAME, filePath, blobName);
+                });
+
+                await enqueueOperation(async () => {
+                    await fs.unlink(filePath); // Remove local file after upload
+                });
 
                 // Mark video as processed
                 processedVideos[videoId] = {
@@ -283,9 +319,10 @@ async function processAllChannels() {
     // Initialize processedVideos directory
     await ensureProcessedVideosDir();
 
-    // Process channels with concurrency limit
-    const promises = channelIds.map(channelId => limit(() => processChannel(channelId)));
-    await Promise.all(promises);
+    // Process channels sequentially to manage concurrency across channels
+    for (const channelId of channelIds) {
+        await processChannel(channelId);
+    }
 }
 
 // Schedule the task using cron
