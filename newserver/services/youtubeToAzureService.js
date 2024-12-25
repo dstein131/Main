@@ -416,3 +416,4 @@ process.on('SIGINT', handleShutdown);
 process.on('SIGTERM', handleShutdown);
 
 module.exports = { init };
+
