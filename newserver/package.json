@@ -10,6 +10,7 @@
     "append-field": "^1.0.0",
     "array-flatten": "^1.1.1",
     "async": "^3.2.6",
+    "async-retry": "^1.3.3",
     "asynckit": "^0.4.0",
     "aws-ssl-profiles": "^1.1.2",
     "axios": "^1.7.9",
