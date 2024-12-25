@@ -1,3 +1,5 @@
+// server.js
+
 const express = require('express');
 const bodyParser = require('body-parser');
 const cors = require('cors');
@@ -9,6 +11,7 @@ const path = require('path'); // Import path module
 const fs = require('fs'); // Import file system module
 const util = require('util'); // Import util for formatting
 
+// Import Routes
 const userRoutes = require('./routes/user.routes'); // Import user routes
 const { authenticateJWT } = require('./middleware/auth.middleware'); // Import JWT auth middleware
 const emailRoutes = require('./routes/email.routes'); // Import email routes
@@ -19,6 +22,10 @@ const cartsRoutes = require('./routes/carts.routes'); // Import carts routes
 const paymentsRoutes = require('./routes/payments.routes'); // Import payments routes
 const ordersRoutes = require('./routes/orders.routes'); // Import orders routes
 const directMessageRoutes = require('./routes/directMessage.routes'); // Import direct message routes
+const landingPageRoute = require('./routes/landingPage.routes'); // Import landing page routes
+
+// Import YouTube to Azure Storage Service
+const youtubeToAzureService = require('./services/youtubeToAzureService'); // Import YouTube to Azure service
 
 // Load environment variables
 dotenv.config();
@@ -115,19 +122,7 @@ app.use('/api/payments', paymentsRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/messages', directMessageRoutes);
 
-// Socket.io setup (for real-time functionalities)
-const http = require('http');
-const server = http.createServer(app);
-const io = socketIo(server);
-io.on('connection', (socket) => {
-    console.log('A user connected');
-    socket.on('disconnect', () => {
-        console.log('A user disconnected');
-    });
-});
-
 // Landing page route
-const landingPageRoute = require('./routes/landingPage.routes');
 app.use('/', landingPageRoute); // Mount the landing page route at root
 
 // Error handling for file upload errors
@@ -143,6 +138,20 @@ app.use((err, req, res, next) => {
     } else {
         next();
     }
+});
+
+// Initialize YouTube to Azure service
+youtubeToAzureService.init();
+
+// Socket.io setup (for real-time functionalities)
+const http = require('http');
+const server = http.createServer(app);
+const io = socketIo(server);
+io.on('connection', (socket) => {
+    console.log('A user connected');
+    socket.on('disconnect', () => {
+        console.log('A user disconnected');
+    });
 });
 
 // Start the server
