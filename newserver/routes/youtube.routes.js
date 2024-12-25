@@ -2,7 +2,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { downloadVideo } = require('../services/youtube.service');
+const { downloadVideo } = require('../services/youtube.services');
 const ApiError = require('../utils/ApiError');
 
 router.post('/download', async (req, res) => {
