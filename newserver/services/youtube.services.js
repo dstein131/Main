@@ -17,11 +17,20 @@ const downloadVideo = async (url) => {
         // Log available formats
         console.log('Available formats:', videoInfo.formats);
 
-        // Choose the best available format
-        const format = ytdl.chooseFormat(videoInfo.formats, { quality: 'highestvideo' });
+        // Try different formats in order of preference
+        const qualities = ['highestvideo', 'highest', 'audioandvideo', 'highestaudio'];
+        let format = null;
+
+        for (const quality of qualities) {
+            format = ytdl.chooseFormat(videoInfo.formats, { quality });
+            if (format && format.url) {
+                console.log(`Successfully selected format with quality: ${quality}`);
+                break;
+            }
+        }
 
         if (!format || !format.url) {
-            console.error('No valid download URL found in formats:', videoInfo.formats);
+            console.error('No valid download URL found in any format:', videoInfo.formats);
             throw new ApiError('Video is no longer available or cannot be accessed.', 410);
         }
 
