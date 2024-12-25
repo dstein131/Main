@@ -3,7 +3,8 @@
 const { google } = require('googleapis');
 const { BlobServiceClient } = require('@azure/storage-blob');
 const dotenv = require('dotenv');
-const fs = require('fs').promises; // Use promise-based fs for non-blocking operations
+const fs = require('fs'); // Standard fs module for streaming
+const fsp = require('fs').promises; // Promise-based fs
 const path = require('path');
 const ytdl = require('ytdl-core');
 const cron = require('node-cron');
@@ -64,7 +65,7 @@ const logger = winston.createLogger({
 // Ensure logs directory exists
 (async () => {
     try {
-        await fs.mkdir(logsDir, { recursive: true });
+        await fsp.mkdir(logsDir, { recursive: true });
         logger.info('Logs directory ensured.');
     } catch (error) {
         console.error(`Failed to create logs directory: ${error.message}`);
@@ -127,7 +128,7 @@ const processedVideosDir = path.join(__dirname, 'processedVideos');
 // Ensure processedVideos directory exists
 async function ensureProcessedVideosDir() {
     try {
-        await fs.mkdir(processedVideosDir, { recursive: true });
+        await fsp.mkdir(processedVideosDir, { recursive: true });
         logger.info('Processed videos directory ensured.');
     } catch (error) {
         logger.error(`Failed to create processedVideos directory: ${error.message}`);
@@ -139,7 +140,7 @@ async function ensureProcessedVideosDir() {
 async function loadProcessedVideos(channelId) {
     const filePath = path.join(processedVideosDir, `${channelId}.json`);
     try {
-        const data = await fs.readFile(filePath, 'utf-8');
+        const data = await fsp.readFile(filePath, 'utf-8');
         logger.info(`Loaded processed videos for channel ${channelId}.`);
         return JSON.parse(data);
     } catch (error) {
@@ -159,7 +160,7 @@ async function loadProcessedVideos(channelId) {
 async function saveProcessedVideos(channelId, processedVideos) {
     const filePath = path.join(processedVideosDir, `${channelId}.json`);
     try {
-        await fs.writeFile(filePath, JSON.stringify(processedVideos, null, 2), 'utf-8');
+        await fsp.writeFile(filePath, JSON.stringify(processedVideos, null, 2), 'utf-8');
         logger.info(`Saved processed videos for channel ${channelId}.`);
     } catch (error) {
         logger.error(`Failed to save processed videos for channel ${channelId}: ${error.message}`);
@@ -279,16 +280,19 @@ async function processChannel(channelId) {
                     continue; // Skip live streams that have started
                 }
 
+                // Enqueue download operation
                 await enqueueOperation(async () => {
                     await downloadVideo(videoId, filePath);
                 });
 
+                // Enqueue upload operation
                 await enqueueOperation(async () => {
                     await uploadToAzure(process.env.AZURE_CONTAINER_NAME, filePath, blobName);
                 });
 
+                // Enqueue file deletion operation
                 await enqueueOperation(async () => {
-                    await fs.unlink(filePath); // Remove local file after upload
+                    await fsp.unlink(filePath); // Remove local file after upload
                 });
 
                 // Mark video as processed
