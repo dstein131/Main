@@ -7,7 +7,6 @@ const { OAuth2Client } = require('google-auth-library');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-
 /**
  * User Registration
  */
@@ -55,7 +54,18 @@ exports.register = async (req, res) => {
             // Commit the transaction
             await connection.commit();
 
-            res.status(201).json({ message: 'User created and associated with mhwd application successfully' });
+            // Generate JWT token for the newly registered user
+            const token = jwt.sign(
+                { id: userId, username },
+                process.env.JWT_SECRET_KEY,
+                { expiresIn: '1h' }
+            );
+
+            // Return success message along with the JWT token
+            res.status(201).json({ 
+                message: 'User created and logged in successfully', 
+                token 
+            });
         } catch (transactionErr) {
             // Rollback the transaction in case of an error
             await connection.rollback();
