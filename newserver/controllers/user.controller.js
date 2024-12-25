@@ -33,7 +33,7 @@ exports.register = async (req, res) => {
             const [appResult] = await connection.query(appQuery, ['mhwd']);
 
             if (appResult.length === 0) {
-                throw new Error('Application "mhwd" not found in database.');
+                throw new Error('Application "mhwd" not found in the database.');
             }
 
             const appId = appResult[0].app_id;
@@ -43,7 +43,7 @@ exports.register = async (req, res) => {
             const [roleResult] = await connection.query(roleQuery, ['mhwd_user']);
 
             if (roleResult.length === 0) {
-                throw new Error('Role "mhwd_user" not found in database.');
+                throw new Error('Role "mhwd_user" not found in the database.');
             }
 
             const roleId = roleResult[0].role_id;
@@ -65,6 +65,25 @@ exports.register = async (req, res) => {
         }
     } catch (err) {
         console.error('Error during registration:', err);
+
+        // Return specific errors based on error codes or messages
+        if (err.code === 'ER_DUP_ENTRY') {
+            if (err.sqlMessage.includes('users.username')) {
+                return res.status(400).json({ message: 'Username already exists' });
+            } else if (err.sqlMessage.includes('users.email')) {
+                return res.status(400).json({ message: 'Email already exists' });
+            }
+        }
+
+        if (err.message.includes('Application "mhwd" not found')) {
+            return res.status(400).json({ message: 'Required application "mhwd" not found in the database.' });
+        }
+
+        if (err.message.includes('Role "mhwd_user" not found')) {
+            return res.status(400).json({ message: 'Required role "mhwd_user" not found in the database.' });
+        }
+
+        // Generic error response
         res.status(500).json({ message: 'Error creating user', error: err.message });
     }
 };
