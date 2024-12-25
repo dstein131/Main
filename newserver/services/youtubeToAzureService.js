@@ -123,7 +123,7 @@ async function getActiveContainerClient(containerName) {
 }
 
 // Path to store processed video IDs per channel
-const processedVideosDir = path.join(__dirname, 'processedVideos');
+const processedVideosDir = path.join(__dirname, '..', 'processedVideos');
 
 // Ensure processedVideos directory exists
 async function ensureProcessedVideosDir() {
@@ -222,9 +222,16 @@ async function downloadVideo(videoId, filePath) {
         const writeStream = fs.createWriteStream(filePath);
 
         videoStream.pipe(writeStream)
-            .on('finish', () => {
+            .on('finish', async () => {
                 logger.info(`Downloaded video: ${videoId}`);
-                resolve();
+                // Verify file existence
+                try {
+                    await fsp.access(filePath, fs.constants.F_OK);
+                    resolve();
+                } catch (err) {
+                    logger.error(`Downloaded file not found for video ${videoId}: ${err.message}`);
+                    reject(new Error(`Downloaded file not found for video ${videoId}`));
+                }
             })
             .on('error', (err) => {
                 logger.error(`Error downloading video ${videoId}: ${err.message}`);
@@ -234,6 +241,14 @@ async function downloadVideo(videoId, filePath) {
         videoStream.on('error', (err) => {
             if (err.message.includes('This live event will begin')) {
                 logger.warn(`Live event for video ${videoId} has not started yet. Skipping download.`);
+                // Clean up the write stream if it was created
+                writeStream.close();
+                fsp.unlink(filePath).catch(unlinkErr => {
+                    logger.error(`Error deleting incomplete file ${filePath}: ${unlinkErr.message}`);
+                });
+                resolve(); // Resolve to continue processing other videos
+            } else if (err.message.includes('410')) { // Handle HTTP 410 Gone
+                logger.warn(`Video ${videoId} is no longer available (Status code: 410). Skipping download.`);
                 // Clean up the write stream if it was created
                 writeStream.close();
                 fsp.unlink(filePath).catch(unlinkErr => {
@@ -315,6 +330,14 @@ async function processChannel(channelId) {
                     }
 
                     await downloadVideo(videoId, filePath);
+
+                    // Verify file existence before upload
+                    try {
+                        await fsp.access(filePath, fs.constants.F_OK);
+                    } catch (err) {
+                        throw new Error(`File ${filePath} does not exist after download.`);
+                    }
+
                     await uploadToAzure(process.env.AZURE_CONTAINER_NAME, filePath, blobName);
                     await fsp.unlink(filePath); // Remove local file after upload
 
@@ -382,5 +405,14 @@ function init() {
         }
     })();
 }
+
+// Graceful shutdown handling
+function handleShutdown() {
+    logger.info('Received shutdown signal. Shutting down gracefully...');
+    process.exit(0);
+}
+
+process.on('SIGINT', handleShutdown);
+process.on('SIGTERM', handleShutdown);
 
 module.exports = { init };
