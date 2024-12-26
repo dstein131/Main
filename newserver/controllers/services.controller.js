@@ -74,7 +74,7 @@ exports.getServiceById = async (req, res) => {
  * Create a new service.
  */
 exports.createService = async (req, res) => {
-    const { title, price, description } = req.body;
+    const { title, price, description, isMonthly } = req.body;
     const userId = req.user.id;
 
     if (!title || !price) {
@@ -83,8 +83,8 @@ exports.createService = async (req, res) => {
 
     try {
         const [result] = await pool.query(
-            'INSERT INTO services (title, price, description) VALUES (?, ?, ?)',
-            [title, price, description]
+            'INSERT INTO services (title, price, description, isMonthly) VALUES (?, ?, ?, ?)',
+            [title, price, description, isMonthly || 0]
         );
 
         const newServiceId = result.insertId;
@@ -106,7 +106,7 @@ exports.createService = async (req, res) => {
  */
 exports.updateService = async (req, res) => {
     const { id } = req.params;
-    const { title, price, description } = req.body;
+    const { title, price, description, isMonthly } = req.body;
     const userId = req.user.id;
 
     try {
@@ -116,8 +116,8 @@ exports.updateService = async (req, res) => {
         }
 
         const [result] = await pool.query(
-            'UPDATE services SET title = ?, price = ?, description = ?, updated_at = NOW() WHERE service_id = ?',
-            [title, price, description, id]
+            'UPDATE services SET title = ?, price = ?, description = ?, isMonthly = ?, updated_at = NOW() WHERE service_id = ?',
+            [title, price, description, isMonthly || 0, id]
         );
 
         await pool.query(
